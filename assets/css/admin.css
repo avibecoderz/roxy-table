@@ -279,6 +279,34 @@
 	border-bottom: 0 !important;
 }
 
+/* Optional styles applied only to tables created from a design template. */
+.roxytable-template-indigo .roxytable-table thead th {
+	background: #6366f1 !important;
+	color: #ffffff !important;
+}
+.roxytable-template-indigo .roxytable-table tbody tr:nth-child(even) td {
+	background: #eef2ff;
+}
+.roxytable-template-indigo .roxytable-table,
+.roxytable-template-indigo .roxytable-table th,
+.roxytable-template-indigo .roxytable-table td {
+	border-color: #c7d2fe !important;
+}
+.roxytable-template-obsidian .roxytable-table thead th {
+	background: #1e293b !important;
+	color: #ffffff !important;
+}
+.roxytable-template-obsidian .roxytable-table tbody tr:nth-child(even) td {
+	background: #f8fafc;
+}
+.roxytable-template-emerald .roxytable-table thead th {
+	background: #059669 !important;
+	color: #ffffff !important;
+}
+.roxytable-template-emerald .roxytable-table tbody tr:nth-child(even) td {
+	background: #ecfdf5;
+}
+
 /* WordPress layout overrides for clean interface */
 #wpcontent {
 	padding-left: 0 !important;

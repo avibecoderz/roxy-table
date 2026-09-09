@@ -329,6 +329,7 @@ function createCustomDropdown( column, table ) {
 	} );
 
 	return wrapper;
+}
 
 function renderPreviewRows( table ) {
 	const searchInput = document.getElementById( 'roxytable-preview-search' );
@@ -495,28 +496,30 @@ function initTablesList() {
 		} );
 	}
 
-	document.querySelectorAll( '.rt-copy-shortcode' ).forEach( ( button ) => {
-		button.addEventListener( 'click', async () => {
-			const shortcode = button.dataset.shortcode || '';
-			try {
-				await navigator.clipboard.writeText( shortcode );
-			} catch {
-				const ta = document.createElement( 'textarea' );
-				ta.value = shortcode;
-				ta.style.position = 'absolute';
-				ta.style.left = '-9999px';
-				document.body.appendChild( ta );
-				ta.select();
-				document.execCommand( 'copy' );
-				document.body.removeChild( ta );
-			}
+	document.addEventListener( 'click', async ( event ) => {
+		const button = event.target.closest && event.target.closest( '.rt-copy-shortcode' );
+		if ( ! button ) return;
 
-			const originalText = button.textContent;
-			button.textContent = 'Copied!';
-			setTimeout( () => {
-				button.textContent = originalText;
-			}, 1200 );
-		} );
+		event.preventDefault();
+		const shortcode = button.dataset.shortcode || '';
+		try {
+			await navigator.clipboard.writeText( shortcode );
+		} catch {
+			const ta = document.createElement( 'textarea' );
+			ta.value = shortcode;
+			ta.style.position = 'absolute';
+			ta.style.left = '-9999px';
+			document.body.appendChild( ta );
+			ta.select();
+			document.execCommand( 'copy' );
+			document.body.removeChild( ta );
+		}
+
+		const originalText = button.textContent;
+		button.textContent = 'Copied!';
+		setTimeout( () => {
+			button.textContent = originalText;
+		}, 1200 );
 	} );
 
 	// Action link: show small popup with shortcode and copy button
@@ -559,12 +562,13 @@ function handleShortcodeActionClick( e, link ) {
 	// Create popup element
 	const popup = document.createElement( 'div' );
 	popup.className = 'rt-shortcode-popup';
+	const escapedShortcode = escHtml( shortcode );
 	popup.innerHTML = `
 		<div class="rt-shortcode-popup-inner">
 			<button type="button" class="rt-shortcode-popup-close" aria-label="Close">×</button>
 			<div class="rt-shortcode-popup-body">
 				<label class="rt-shortcode-popup-label">Shortcode</label>
-				<input class="rt-shortcode-popup-input" readonly value="${shortcode}" />
+				<input class="rt-shortcode-popup-input" readonly value="${escapedShortcode}" />
 				<div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end;">
 					<button type="button" class="rt-shortcode-popup-copy roxytable-btn roxytable-btn-primary">Copy</button>
 				</div>

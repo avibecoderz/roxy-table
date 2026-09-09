@@ -15,6 +15,8 @@ if ( ! $table ) {
 
 $columns = Table_Repository::get_columns( $table_id );
 $rows = Table_Repository::get_rows( $table_id, max( 1, (int) ( $table['total_rows'] ?? 1 ) ), 0 );
+$table_settings = json_decode( (string) ( $table['settings'] ?? '' ), true );
+$current_template = is_array( $table_settings ) && ! empty( $table_settings['template'] ) ? $table_settings['template'] : '';
 ?>
 <div class="roxytable-edit-container" style="max-width: 880px; margin: 0 auto;">
     <div style="margin-bottom:24px;">
@@ -54,6 +56,16 @@ $rows = Table_Repository::get_rows( $table_id, max( 1, (int) ( $table['total_row
                     </select>
                 </div>
 
+                <div>
+                    <label class="rt-label" for="rt-table-template"><?php _e( 'Frontend Template', 'roxytable' ); ?></label>
+                    <select id="rt-table-template" name="rt_table_template" class="rt-field" style="max-width:300px;">
+                        <option value="" <?php selected( '', $current_template ); ?>><?php _e( 'Default table style', 'roxytable' ); ?></option>
+                        <option value="indigo" <?php selected( 'indigo', $current_template ); ?>><?php _e( 'Indigo Clean', 'roxytable' ); ?></option>
+                        <option value="obsidian" <?php selected( 'obsidian', $current_template ); ?>><?php _e( 'Dark Minimal', 'roxytable' ); ?></option>
+                        <option value="emerald" <?php selected( 'emerald', $current_template ); ?>><?php _e( 'Emerald Grid', 'roxytable' ); ?></option>
+                    </select>
+                </div>
+
                 <div style="display:flex;gap:12px;">
                     <button type="submit" class="roxytable-btn roxytable-btn-primary"><?php _e( 'Save Changes', 'roxytable' ); ?></button>
                     <a href="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-tables' ) ); ?>" class="roxytable-btn roxytable-btn-secondary"><?php _e( 'Cancel', 'roxytable' ); ?></a>
@@ -63,6 +75,9 @@ $rows = Table_Repository::get_rows( $table_id, max( 1, (int) ( $table['total_row
     </div>
 
     <div style="margin-top:18px;">
+        <?php if ( isset( $_GET['template_created'] ) && '1' === $_GET['template_created'] ) : ?>
+            <div class="notice notice-success" style="margin:0 0 16px;padding:10px 12px;"><p style="margin:0;"><?php _e( 'Template applied. Add your data, then publish the table when it is ready.', 'roxytable' ); ?></p></div>
+        <?php endif; ?>
         <?php if ( isset( $_GET['data_updated'] ) && '1' === $_GET['data_updated'] ) : ?>
             <div class="notice notice-success" style="margin:0 0 16px;padding:10px 12px;"><p style="margin:0;"><?php _e( 'Table data updated successfully.', 'roxytable' ); ?></p></div>
         <?php endif; ?>

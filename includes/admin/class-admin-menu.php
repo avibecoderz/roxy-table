@@ -31,6 +31,41 @@ class Admin_Menu {
 			return;
 		}
 
+		// Create a new draft table from a design template.
+		if ( isset( $_POST['roxytable_use_template'] ) ) {
+			if ( ! isset( $_POST['roxytable_template_nonce'] ) || ! wp_verify_nonce( sanitize_key( $_POST['roxytable_template_nonce'] ), 'roxytable_use_template' ) ) {
+				wp_die( __( 'Security check failed.', 'roxytable' ) );
+			}
+
+			$template = sanitize_key( wp_unslash( $_POST['roxytable_use_template'] ) );
+			$templates = [
+				'indigo'  => [ 'name' => 'Indigo Clean Table', 'columns' => [ 'Institution', 'Website', 'Description' ] ],
+				'obsidian' => [ 'name' => 'Dark Minimal Table', 'columns' => [ 'Name', 'Value', 'Description' ] ],
+				'emerald' => [ 'name' => 'Emerald Grid Table', 'columns' => [ 'Name', 'Category', 'Description' ] ],
+			];
+			if ( ! isset( $templates[ $template ] ) ) {
+				wp_die( __( 'Invalid template selected.', 'roxytable' ) );
+			}
+
+			$definition = $templates[ $template ];
+			$table_id = \RoxyTable\Includes\Admin\Table_Repository::insert_table( [
+				'name'        => $definition['name'],
+				'description' => __( 'Created from a RoxyTable design template.', 'roxytable' ),
+				'status'      => 'draft',
+				'total_rows'  => 1,
+				'total_cols'  => count( $definition['columns'] ),
+				'settings'    => [ 'template' => $template, 'pagination' => true, 'rows_per_page' => 25 ],
+			] );
+			if ( is_wp_error( $table_id ) ) {
+				wp_die( esc_html( $table_id->get_error_message() ) );
+			}
+
+			\RoxyTable\Includes\Admin\Table_Repository::insert_columns( $table_id, $definition['columns'], false );
+			\RoxyTable\Includes\Admin\Table_Repository::insert_rows( $table_id, [ array_fill( 0, count( $definition['columns'] ), '' ) ] );
+			wp_safe_redirect( admin_url( 'admin.php?page=roxytable-tables&action=edit&id=' . $table_id . '&template_created=1' ) );
+			exit;
+		}
+
 		// Handle Step 1 -> Step 2 transition (Upload file)
 		if ( isset( $_POST['roxytable_upload_action'] ) && 'upload' === $_POST['roxytable_upload_action'] ) {
 			$upload_result = \RoxyTable\Includes\Admin\Import_Handler::handle_upload();
@@ -131,6 +166,11 @@ class Admin_Menu {
 			}
 
 			$result = \RoxyTable\Includes\Admin\Table_Repository::update_table_meta( $table_id, $meta );
+			$template = isset( $_POST['rt_table_template'] ) ? sanitize_key( wp_unslash( $_POST['rt_table_template'] ) ) : '';
+			$allowed_templates = [ '', 'indigo', 'obsidian', 'emerald' ];
+			if ( in_array( $template, $allowed_templates, true ) ) {
+				\RoxyTable\Includes\Admin\Table_Repository::update_table_settings( $table_id, [ 'template' => $template ] );
+			}
 			wp_safe_redirect( admin_url( 'admin.php?page=roxytable-tables' ) );
 			exit;
 		}
@@ -392,8 +432,9 @@ class Admin_Menu {
 		$admin_css = ROXYTABLE_PATH . 'assets/css/admin.css';
 		wp_enqueue_style( 'roxytable-admin-css', ROXYTABLE_URL . 'assets/css/admin.css', [], file_exists( $admin_css ) ? filemtime( $admin_css ) : ROXYTABLE_VERSION );
 
-		// Enqueue JS module
-		wp_enqueue_script( 'roxytable-admin-js', ROXYTABLE_URL . 'assets/js/admin.js', [], ROXYTABLE_VERSION, true );
+		// Enqueue the admin module with automatic cache busting after JS fixes.
+		$admin_js = ROXYTABLE_PATH . 'assets/js/admin.js';
+		wp_enqueue_script( 'roxytable-admin-js', ROXYTABLE_URL . 'assets/js/admin.js', [], file_exists( $admin_js ) ? filemtime( $admin_js ) : ROXYTABLE_VERSION, true );
 	}
 
 	/**

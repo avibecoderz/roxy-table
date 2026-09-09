@@ -57,9 +57,12 @@ class Frontend {
         // Load every row so the shortcode represents the complete published table.
         $total_rows = Table_Repository::count_rows( $table_id );
         $rows = Table_Repository::get_rows( $table_id, max( 1, $total_rows ), 0 );
+		$settings = json_decode( (string) ( $table['settings'] ?? '' ), true );
+		$template = is_array( $settings ) && ! empty( $settings['template'] ) ? sanitize_html_class( $settings['template'] ) : '';
+		$template_class = $template ? ' roxytable-template-' . $template : '';
 
         // Build a minimal HTML table.
-        $html = '<div class="roxytable-embed" style="max-width:100%;overflow-x:auto;">';
+        $html = '<div class="roxytable-embed' . esc_attr( $template_class ) . '" style="max-width:100%;overflow-x:auto;">';
         $html .= '<table class="roxytable-table" style="width:100%;border-collapse:collapse;">';
         $html .= '<thead><tr>';
         foreach ( $columns as $col ) {

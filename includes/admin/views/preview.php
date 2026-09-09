@@ -21,9 +21,12 @@ $current_page = isset( $_GET['paged'] ) ? max( 1, absint( wp_unslash( $_GET['pag
 $current_page = min( $current_page, $total_pages );
 $rows = Table_Repository::get_rows( $table_id, $per_page, ( $current_page - 1 ) * $per_page );
 $preview_url = admin_url( 'admin.php?page=roxytable-tables&action=preview&id=' . $table_id . '&paged=' );
+$settings = json_decode( (string) ( $table['settings'] ?? '' ), true );
+$template = is_array( $settings ) && ! empty( $settings['template'] ) ? sanitize_html_class( $settings['template'] ) : '';
+$template_class = $template ? ' roxytable-template-' . $template : '';
 
 ?>
-<div class="roxytable-preview-admin" style="max-width:1200px;margin:0 auto;">
+<div class="roxytable-preview-admin<?php echo esc_attr( $template_class ); ?>" style="max-width:1200px;margin:0 auto;">
     <div style="margin-bottom:12px;">
         <h1 style="font-size:1.75rem;margin:0;color:var(--text-main);font-weight:700;"><?php echo esc_html( $table['name'] ); ?></h1>
         <?php if ( ! empty( $table['description'] ) ) : ?>
