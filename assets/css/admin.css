@@ -1,0 +1,831 @@
+/* Design tokens & resets */
+:root {
+	--primary: #5046e5;
+	--primary-hover: #4338ca;
+	--primary-light: #e0e7ff;
+	--bg-main: #f8fafc;
+	--bg-sidebar: #0f172a;
+	--bg-card: #ffffff;
+	--text-main: #1e293b;
+	--text-muted: #64748b;
+	--text-sidebar: #94a3b8;
+	--border-color: #e2e8f0;
+	--radius-lg: 8px;
+	--radius-xl: 12px;
+	--font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Page structural layout */
+.roxytable-admin-wrap {
+	display: block;
+	min-height: calc(100vh - 32px); /* WordPress top admin bar is 32px */
+	margin-left: 0; /* use native WordPress admin menu */
+	background-color: var(--bg-main);
+	font-family: var(--font-sans);
+	color: var(--text-main);
+}
+
+/* Sidebar */
+.roxytable-sidebar {
+	width: 260px;
+	background-color: var(--bg-sidebar);
+	color: #ffffff;
+	display: flex;
+	flex-direction: column;
+	border-right: 1px solid rgba(255, 255, 255, 0.1);
+	flex-shrink: 0;
+}
+
+.roxytable-sidebar-logo {
+	display: flex;
+	align-items: center;
+	padding: 24px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.roxytable-sidebar-logo .logo-icon {
+	color: var(--primary);
+	width: 24px;
+	height: 24px;
+	margin-right: 12px;
+}
+
+.roxytable-sidebar-logo .logo-icon svg {
+	width: 100%;
+	height: 100%;
+}
+
+.roxytable-sidebar-logo h2 {
+	font-size: 1.25rem;
+	font-weight: 700;
+	margin: 0;
+	color: #ffffff;
+	letter-spacing: -0.025em;
+}
+
+.roxytable-nav {
+	padding: 16px 12px;
+	flex-grow: 1;
+}
+
+.roxytable-nav ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.roxytable-nav li {
+	margin-bottom: 4px;
+}
+
+.roxytable-nav-item {
+	display: flex;
+	align-items: center;
+	padding: 10px 16px;
+	color: var(--text-sidebar);
+	text-decoration: none;
+	border-radius: var(--radius-lg);
+	font-size: 0.875rem;
+	font-weight: 500;
+	transition: all 0.2s ease;
+}
+
+.roxytable-nav-item:hover {
+	background-color: rgba(255, 255, 255, 0.05);
+	color: #ffffff;
+}
+
+.roxytable-nav-item.active {
+	background-color: var(--primary);
+	color: #ffffff;
+}
+
+.roxytable-nav-item .nav-icon {
+	width: 18px;
+	height: 18px;
+	margin-right: 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.roxytable-nav-item .nav-icon svg {
+	width: 100%;
+	height: 100%;
+}
+
+/* Main Content Area */
+.roxytable-main {
+	flex-grow: 1;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+/* Topbar */
+.roxytable-topbar {
+	height: 70px;
+	background-color: var(--bg-card);
+	border-bottom: 1px solid var(--border-color);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 32px;
+	flex-shrink: 0;
+}
+
+.roxytable-breadcrumb {
+	display: flex;
+	align-items: center;
+	font-size: 0.875rem;
+	font-weight: 500;
+}
+
+.roxytable-breadcrumb .breadcrumb-root {
+	color: var(--text-muted);
+}
+
+.roxytable-breadcrumb .breadcrumb-separator {
+	color: var(--text-muted);
+	margin: 0 8px;
+}
+
+.roxytable-breadcrumb .breadcrumb-current {
+	color: var(--text-main);
+	font-weight: 600;
+}
+
+.roxytable-search-wrapper {
+	position: relative;
+	width: 300px;
+}
+
+.roxytable-search-wrapper .search-icon {
+	position: absolute;
+	left: 12px;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--text-muted);
+	width: 16px;
+	height: 16px;
+	display: flex;
+	align-items: center;
+}
+
+.roxytable-search-wrapper .search-icon svg {
+	width: 100%;
+	height: 100%;
+}
+
+.roxytable-global-search {
+	width: 100%;
+	padding: 8px 12px 8px 36px;
+	font-size: 0.875rem;
+	border: 1px solid var(--border-color);
+	border-radius: var(--radius-lg);
+	background-color: #f1f5f9;
+	color: var(--text-main);
+	outline: none;
+	transition: all 0.2s ease;
+}
+
+.roxytable-global-search:focus {
+	background-color: #ffffff;
+	border-color: var(--primary);
+	box-shadow: 0 0 0 3px rgba(80, 70, 229, 0.15);
+}
+
+/* Page Content Body */
+.roxytable-content {
+	padding: 32px;
+	flex-grow: 1;
+	overflow-y: auto;
+}
+
+/* Cards & Layout Modules */
+.roxytable-card {
+	background-color: var(--bg-card);
+	border-radius: var(--radius-xl);
+	border: 1px solid var(--border-color);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+	padding: 24px;
+	margin-bottom: 24px;
+}
+
+.roxytable-card-header {
+	margin-bottom: 20px;
+}
+
+.roxytable-card-title {
+	font-size: 1.125rem;
+	font-weight: 600;
+	margin: 0;
+	color: var(--text-main);
+}
+
+.roxytable-card-description {
+	font-size: 0.875rem;
+	color: var(--text-muted);
+	margin-top: 4px;
+}
+
+/* Buttons */
+.roxytable-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 8px 16px;
+	font-size: 0.875rem;
+	font-weight: 500;
+	border-radius: var(--radius-lg);
+	cursor: pointer;
+	transition: all 0.2s ease;
+	border: 1px solid transparent;
+	text-decoration: none;
+}
+
+.roxytable-btn-primary {
+	background-color: var(--primary);
+	color: #ffffff;
+}
+
+.roxytable-btn-primary:hover {
+	background-color: var(--primary-hover);
+	color: #ffffff;
+}
+
+.roxytable-btn-secondary {
+	background-color: #ffffff;
+	border-color: var(--border-color);
+	color: var(--text-main);
+}
+
+.roxytable-btn-secondary:hover {
+	background-color: #f1f5f9;
+	color: var(--text-main);
+}
+
+/* WordPress layout overrides for clean interface */
+#wpcontent {
+	padding-left: 0 !important;
+}
+
+.roxytable-admin-wrap * {
+	box-sizing: border-box;
+}
+
+@media (max-width: 782px) {
+	.roxytable-admin-wrap {
+		flex-direction: column;
+		margin-left: 0;
+	}
+	.roxytable-sidebar {
+		width: 100%;
+		border-right: none;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	}
+	.roxytable-topbar {
+		padding: 0 16px;
+	}
+	.roxytable-content {
+		padding: 16px;
+	}
+}
+
+/* =========================================================
+   Import Page — Drag-Drop Zone States
+   ========================================================= */
+
+.roxytable-drag-drop-zone {
+	transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.15s ease;
+}
+
+.roxytable-drag-drop-zone.is-dragover {
+	border-color: var(--primary) !important;
+	border-style: solid !important;
+	background-color: var(--primary-light) !important;
+	transform: scale(1.01);
+}
+
+.roxytable-drag-drop-zone.has-file {
+	border-color: #10b981 !important;
+	border-style: solid !important;
+	background-color: #f0fdf4 !important;
+}
+
+.roxytable-drag-drop-zone.is-dragover .dropzone-icon,
+.roxytable-drag-drop-zone.is-dragover > div:first-of-type {
+	color: var(--primary);
+}
+
+/* =========================================================
+   Import Page — Worksheet Card Hover
+   ========================================================= */
+
+.roxytable-import-container .roxytable-card {
+	transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.roxytable-import-container .roxytable-card:hover {
+	transform: translateY(-3px);
+	box-shadow: 0 8px 24px rgba(80, 70, 229, 0.12);
+}
+
+/* =========================================================
+   Import Page — Preview Table Zoom Levels
+   ========================================================= */
+
+.roxytable-zoom-sm th,
+.roxytable-zoom-sm td {
+	font-size: 0.75rem !important;
+	padding: 6px 10px !important;
+}
+
+.roxytable-zoom-md th,
+.roxytable-zoom-md td {
+	font-size: 0.875rem !important;
+	padding: 12px 16px !important;
+}
+
+.roxytable-zoom-lg th,
+.roxytable-zoom-lg td {
+	font-size: 1rem !important;
+	padding: 16px 20px !important;
+}
+
+/* =========================================================
+   Import Page — Search Highlight
+   ========================================================= */
+
+.roxytable-preview-table td.rt-search-match {
+	background-color: #fef9c3 !important;
+}
+
+/* =========================================================
+   Import Page — Step indicator connectors (responsive fix)
+   ========================================================= */
+
+@media (max-width: 600px) {
+	.roxytable-steps-indicator {
+		flex-wrap: wrap;
+		gap: 12px;
+	}
+	.roxytable-steps-indicator > div[style*="flex-grow"] {
+		display: none;
+	}
+}
+
+/* =========================================================
+   Phase 4 — Configuration Form Fields
+   ========================================================= */
+
+.rt-section-heading {
+	font-size: 0.8125rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--text-muted);
+	margin: 0 0 14px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--border-color);
+}
+
+.rt-field-group {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.rt-label {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--text-main);
+}
+
+.rt-hint {
+	font-size: 0.75rem;
+	color: var(--text-muted);
+	margin: 0;
+}
+
+.rt-field {
+	width: 100%;
+	padding: 9px 12px;
+	font-size: 0.875rem;
+	font-family: var(--font-sans);
+	border: 1px solid var(--border-color);
+	border-radius: var(--radius-lg);
+	background-color: #ffffff;
+	color: var(--text-main);
+	outline: none;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+	appearance: none;
+}
+
+.rt-field:focus {
+	border-color: var(--primary);
+	box-shadow: 0 0 0 3px rgba(80, 70, 229, 0.12);
+}
+
+.rt-field textarea,
+textarea.rt-field {
+	resize: vertical;
+	min-height: 72px;
+}
+
+.rt-code-field {
+	font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+	font-size: 0.8125rem;
+	background-color: #f8fafc;
+}
+
+select.rt-field {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 10px center;
+	background-size: 16px;
+	padding-right: 36px;
+	cursor: pointer;
+}
+
+/* Checkbox labels */
+.rt-checkbox-label {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-size: 0.875rem;
+	color: var(--text-main);
+	cursor: pointer;
+	user-select: none;
+}
+
+.rt-checkbox-label input[type="checkbox"] {
+	width: 16px;
+	height: 16px;
+	accent-color: var(--primary);
+	flex-shrink: 0;
+	cursor: pointer;
+}
+
+/* =========================================================
+   Phase 4 — Toggle Switches
+   ========================================================= */
+
+.rt-toggle-label {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.rt-toggle-switch {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.rt-toggle-switch input[type="checkbox"] {
+	position: absolute;
+	opacity: 0;
+	width: 0;
+	height: 0;
+}
+
+.rt-toggle-slider {
+	display: block;
+	width: 40px;
+	height: 22px;
+	background-color: #cbd5e1;
+	border-radius: 9999px;
+	transition: background-color 0.2s ease;
+	position: relative;
+	flex-shrink: 0;
+}
+
+.rt-toggle-slider::after {
+	content: '';
+	position: absolute;
+	top: 3px;
+	left: 3px;
+	width: 16px;
+	height: 16px;
+	background-color: #ffffff;
+	border-radius: 50%;
+	transition: transform 0.2s ease;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.rt-toggle-switch input:checked + .rt-toggle-slider {
+	background-color: var(--primary);
+}
+
+.rt-toggle-switch input:checked + .rt-toggle-slider::after {
+	transform: translateX(18px);
+}
+
+.rt-toggle-text {
+	font-size: 0.875rem;
+	color: var(--text-main);
+	font-weight: 500;
+}
+
+/* =========================================================
+   Phase 4 — Advanced / Collapsible Section
+   ========================================================= */
+
+.rt-advanced-details {
+	border: 1px solid var(--border-color);
+	border-radius: var(--radius-lg);
+	overflow: hidden;
+}
+
+.rt-advanced-summary {
+	list-style: none;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 16px;
+	cursor: pointer;
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: var(--text-main);
+	background-color: #f8fafc;
+	user-select: none;
+	transition: background-color 0.15s ease;
+}
+
+.rt-advanced-summary::-webkit-details-marker { display: none; }
+
+.rt-advanced-summary:hover {
+	background-color: #f1f5f9;
+}
+
+.rt-advanced-details[open] .rt-chevron {
+	transform: rotate(180deg);
+}
+
+.rt-advanced-body {
+	padding: 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	border-top: 1px solid var(--border-color);
+	background-color: #ffffff;
+}
+
+/* =========================================================
+   Phase 4 — Success Screen
+   ========================================================= */
+
+.roxytable-success-container {
+	animation: rt-fade-up 0.4s ease both;
+}
+
+@keyframes rt-fade-up {
+	from { opacity: 0; transform: translateY(16px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Animated checkmark ring */
+.rt-success-ring {
+	width: 80px;
+	height: 80px;
+	margin: 0 auto;
+}
+
+.rt-checkmark-svg {
+	width: 80px;
+	height: 80px;
+}
+
+.rt-checkmark-circle {
+	stroke: #10b981;
+	stroke-width: 2;
+	stroke-dasharray: 166;
+	stroke-dashoffset: 166;
+	stroke-linecap: round;
+	animation: rt-stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+.rt-checkmark-check {
+	stroke: #10b981;
+	stroke-width: 2.5;
+	stroke-dasharray: 48;
+	stroke-dashoffset: 48;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	animation: rt-stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.5s forwards;
+}
+
+@keyframes rt-stroke {
+	100% { stroke-dashoffset: 0; }
+}
+
+/* Shortcode copy flash */
+#rt-shortcode-pill.rt-copy-flash {
+	background-color: #ecfdf5;
+	border-color: #10b981;
+	color: #065f46;
+	transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+#rt-copy-shortcode.rt-copied {
+	background-color: #ecfdf5;
+	border-color: #10b981;
+	color: #065f46;
+}
+
+/* Shortcode popup */
+.rt-shortcode-popup {
+	position: absolute;
+	z-index: 99999;
+	background: #ffffff;
+	border: 1px solid var(--border-color);
+	box-shadow: 0 8px 24px rgba(12, 23, 55, 0.12);
+	border-radius: 10px;
+	padding: 10px;
+}
+.rt-shortcode-popup-inner {
+	display: flex;
+	gap: 12px;
+	align-items: flex-start;
+}
+.rt-shortcode-popup-body {
+	padding: 8px 6px 6px 6px;
+	min-width: 240px;
+}
+.rt-shortcode-popup-label {
+	display: block;
+	font-size: 0.75rem;
+	color: var(--text-muted);
+	margin-bottom: 6px;
+}
+.rt-shortcode-popup-input {
+	width: 100%;
+	padding: 8px 10px;
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	font-family: inherit;
+	font-size: 0.9rem;
+	background: #fafafa;
+}
+.rt-shortcode-popup-copy {
+	padding: 8px 12px;
+	border-radius: 8px;
+	border: none;
+	background: var(--primary);
+	color: #fff;
+	cursor: pointer;
+}
+.rt-shortcode-popup-close {
+	position: absolute;
+	right: 6px;
+	top: 6px;
+	border: none;
+	background: transparent;
+	font-size: 18px;
+	line-height: 1;
+	cursor: pointer;
+	color: var(--text-muted);
+}
+
+/* Recent tables row styling */
+.roxytable-card table tbody tr td {
+	vertical-align: middle;
+}
+.rt-table-name {
+	font-weight: 600;
+	font-size: 1rem;
+	color: var(--text-main);
+}
+.rt-table-slug {
+	font-size: 0.8125rem;
+	color: var(--text-muted);
+	margin-top: 6px;
+}
+
+/* Shortcode pill in the table actions */
+.rt-shortcode-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	background: #f3f4f6;
+	border: 1px solid var(--border-color);
+	padding: 6px 8px;
+	border-radius: 8px;
+	font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+	font-size: 0.9rem;
+	color: var(--text-main);
+}
+.rt-shortcode-pill .rt-shortcode-text {
+	color: #334155;
+}
+.rt-shortcode-pill .rt-copy-shortcode {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	font-size: 0.95rem;
+}
+.roxytable-actions-more {
+	background: transparent;
+	border: none;
+	font-size: 1.15rem;
+	cursor: pointer;
+	color: var(--text-muted);
+}
+
+/* Preview table styles */
+.roxytable-preview-table thead th {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+}
+.roxytable-preview-table tbody tr td {
+	padding: 12px 14px;
+}
+.rt-status-pill {
+	display: inline-block;
+	padding: 6px 10px;
+	border-radius: 999px;
+	font-weight: 600;
+	font-size: 0.8125rem;
+}
+.rt-status-pass { background: #ecfdf5; color: #065f46; }
+.rt-status-refer { background: #fef3c7; color: #92400e; }
+
+.rt-pagination .roxytable-btn { padding:6px 10px; border-radius:8px; }
+
+/* Developer card */
+.rt-dev-card { padding: 14px; }
+.rt-dev-avatar {
+	width: 64px;
+	height: 64px;
+	border-radius: 50%;
+	display: inline-block;
+	object-fit: cover;
+	flex-shrink: 0;
+}
+
+/* Responsive table styles for small screens (mobile / Android) */
+@media (max-width: 768px) {
+	.roxytable-embed .roxytable-table,
+	.roxytable-preview-table,
+	.roxytable-table {
+		width: 100%;
+		display: block;
+		overflow: visible;
+	}
+
+	.roxytable-embed .roxytable-table thead,
+	.roxytable-preview-table thead,
+	.roxytable-table thead {
+		display: none;
+	}
+
+	.roxytable-embed .roxytable-table tbody tr,
+	.roxytable-preview-table tbody tr,
+	.roxytable-table tbody tr {
+		display: block;
+		border: 1px solid rgba(0,0,0,0.06);
+		margin-bottom: 10px;
+		border-radius: 8px;
+		padding: 8px;
+		background: #fff;
+	}
+
+	.roxytable-embed .roxytable-table td,
+	.roxytable-preview-table td,
+	.roxytable-table td {
+		display: flex;
+		justify-content: space-between;
+		padding: 8px 6px;
+		border: none;
+	}
+
+	.roxytable-embed .roxytable-table td::before,
+	.roxytable-preview-table td::before,
+	.roxytable-table td::before {
+		content: attr(data-label);
+		font-weight: 600;
+		color: var(--text-muted);
+		margin-right: 8px;
+		flex: 0 0 48%;
+	}
+
+	.roxytable-controls { flex-direction: column; align-items: stretch; }
+}
+
+/* Custom dropdown styles for preview filters */
+.rt-dropdown { position: relative; display: inline-block; }
+.rt-dropdown-toggle { display: inline-flex; align-items: center; gap:8px; padding:10px 14px; border-radius:8px; border:1px solid var(--border-color); background:#fff; cursor:pointer; }
+.rt-dropdown-toggle .rt-dropdown-label { font-weight:600; color:var(--text-muted); margin-right:6px; }
+.rt-dropdown-toggle .rt-dropdown-value { color:var(--text-main); font-weight:500; }
+.rt-dropdown-menu { position: absolute; top: calc(100% + 8px); left: 0; min-width:220px; max-width:360px; background:#fff; border:1px solid #e6e9ef; box-shadow:0 8px 24px rgba(16,24,40,0.06); z-index:9999; border-radius:8px; overflow:hidden; }
+.rt-dropdown-search { display:block; width:100%; padding:8px 10px; border:none; border-bottom:1px solid #eef2f7; outline:none; }
+.rt-dropdown-list { max-height:260px; overflow:auto; }
+.rt-dropdown-item { display:block; width:100%; text-align:left; padding:10px 12px; border:none; background:transparent; cursor:pointer; }
+.rt-dropdown-item:hover { background:#f8fafc; }
+.rt-dropdown-item::after { content: ''; float:right; width:16px; height:16px; }
+.rt-dropdown-clear { font-style:italic; color:#64748b; }

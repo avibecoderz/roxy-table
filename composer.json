@@ -1,0 +1,14 @@
+{
+    "name": "roxytable/roxytable",
+    "description": "Import Excel files and display them as searchable, sortable, paginated HTML tables.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=7.4",
+        "phpoffice/phpspreadsheet": "^1.29"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}
