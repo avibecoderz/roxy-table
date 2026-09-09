@@ -14,6 +14,7 @@ if ( ! $table ) {
 }
 
 $columns = Table_Repository::get_columns( $table_id );
+$rows = Table_Repository::get_rows( $table_id, max( 1, (int) ( $table['total_rows'] ?? 1 ) ), 0 );
 ?>
 <div class="roxytable-edit-container" style="max-width: 880px; margin: 0 auto;">
     <div style="margin-bottom:24px;">
@@ -62,6 +63,53 @@ $columns = Table_Repository::get_columns( $table_id );
     </div>
 
     <div style="margin-top:18px;">
+        <?php if ( isset( $_GET['data_updated'] ) && '1' === $_GET['data_updated'] ) : ?>
+            <div class="notice notice-success" style="margin:0 0 16px;padding:10px 12px;"><p style="margin:0;"><?php _e( 'Table data updated successfully.', 'roxytable' ); ?></p></div>
+        <?php endif; ?>
+
+        <h4 class="rt-section-heading"><?php _e( 'Table Data', 'roxytable' ); ?></h4>
+		<p class="rt-hint" style="margin:0 0 10px;"><?php _e( 'To make an institution clickable, enter a link in its cell, for example: <a href="https://coren-eac.org">KHADAB UNIVERISITY KANO</a>', 'roxytable' ); ?></p>
+        <div class="roxytable-card" style="margin-top:10px;">
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-tables&action=edit&id=' . $table_id ) ); ?>">
+                <?php wp_nonce_field( 'roxytable_save_data', 'roxytable_save_data_nonce' ); ?>
+                <input type="hidden" name="roxytable_save_data" value="1" />
+                <input type="hidden" name="rt_data_table_id" value="<?php echo esc_attr( $table_id ); ?>" />
+                <div style="overflow-x:auto;">
+                    <table class="roxytable-table" style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#f8fafc;">
+                                <th style="padding:8px;text-align:left;">#</th>
+                                <?php foreach ( $columns as $column ) : ?>
+                                    <th style="padding:8px;text-align:left;min-width:180px;">
+                                        <input type="text" class="rt-field" name="rt_column_names[<?php echo (int) $column['id']; ?>]" value="<?php echo esc_attr( $column['name'] ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Column %s name', 'roxytable' ), $column['name'] ) ); ?>" />
+                                    </th>
+                                <?php endforeach; ?>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if ( empty( $rows ) ) : ?>
+                                <tr><td colspan="<?php echo count( $columns ) + 1; ?>" style="padding:20px;text-align:center;color:var(--text-muted);"><?php _e( 'No rows found.', 'roxytable' ); ?></td></tr>
+                            <?php else : ?>
+                                <?php foreach ( $rows as $row_index => $row ) : ?>
+                                    <tr>
+                                        <td data-label="#" style="padding:8px;white-space:nowrap;"><?php echo (int) $row_index + 1; ?></td>
+                                        <?php foreach ( $columns as $column_index => $column ) : ?>
+                                            <td data-label="<?php echo esc_attr( $column['name'] ); ?>" style="padding:8px;min-width:180px;">
+                                                <input type="text" class="rt-field" name="rt_rows[<?php echo (int) $row['id']; ?>][<?php echo (int) $column_index; ?>]" value="<?php echo esc_attr( $row['cells'][ $column_index ] ?? '' ); ?>" aria-label="<?php echo esc_attr( $column['name'] ); ?>" />
+                                            </td>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top:16px;display:flex;justify-content:flex-end;">
+                    <button type="submit" class="roxytable-btn roxytable-btn-primary"><?php _e( 'Save Table Data', 'roxytable' ); ?></button>
+                </div>
+            </form>
+        </div>
+
         <h4 class="rt-section-heading"><?php _e( 'Columns', 'roxytable' ); ?></h4>
         <div class="roxytable-card" style="margin-top:10px;">
             <table style="width:100%;border-collapse:collapse;">

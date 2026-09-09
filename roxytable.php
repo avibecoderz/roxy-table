@@ -4,7 +4,7 @@
  * Plugin URI:        https://example.com/roxytable
  * Description:       Import Excel (.xlsx/.xls/.csv) files and display them as searchable, sortable, paginated HTML tables.
  * Version:           1.0.0
- * Author:            Abdulrahman Sulaiman
+ * Author:            oralbitstechnology
  * Author URI:        https://abdulrahmansulaiman.netlify.app
  * License:           GPL-2.0-or-later
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt

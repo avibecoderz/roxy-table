@@ -68,6 +68,42 @@ class Admin_Menu {
 			}
 		}
 
+		// Handle Save Table data edits (column names and row cells)
+		if ( isset( $_POST['roxytable_save_data'] ) ) {
+			if ( ! isset( $_POST['roxytable_save_data_nonce'] ) || ! wp_verify_nonce( sanitize_key( $_POST['roxytable_save_data_nonce'] ), 'roxytable_save_data' ) ) {
+				wp_die( __( 'Security check failed.', 'roxytable' ) );
+			}
+
+			$table_id = isset( $_POST['rt_data_table_id'] ) ? absint( $_POST['rt_data_table_id'] ) : 0;
+			if ( $table_id < 1 ) {
+				wp_safe_redirect( admin_url( 'admin.php?page=roxytable-tables' ) );
+				exit;
+			}
+
+			$columns = \RoxyTable\Includes\Admin\Table_Repository::get_columns( $table_id );
+			$posted_names = isset( $_POST['rt_column_names'] ) ? (array) wp_unslash( $_POST['rt_column_names'] ) : [];
+			$columns_to_save = [];
+			foreach ( $columns as $column ) {
+				$column_id = (int) $column['id'];
+				$columns_to_save[] = [
+					'id'         => $column_id,
+					'name'       => $posted_names[ $column_id ] ?? $column['name'],
+					'type'       => $column['type'],
+					'visible'    => $column['visible'],
+					'searchable' => $column['searchable'],
+					'sortable'   => $column['sortable'],
+					'filterable' => $column['filterable'],
+				];
+			}
+			\RoxyTable\Includes\Admin\Table_Repository::save_columns( $table_id, $columns_to_save );
+
+			$posted_rows = isset( $_POST['rt_rows'] ) ? (array) wp_unslash( $_POST['rt_rows'] ) : [];
+			\RoxyTable\Includes\Admin\Table_Repository::update_rows_data( $table_id, $posted_rows );
+
+			wp_safe_redirect( admin_url( 'admin.php?page=roxytable-tables&action=edit&id=' . $table_id . '&data_updated=1' ) );
+			exit;
+		}
+
 		// Handle Save Table edits (from tables edit form)
 		if ( isset( $_POST['roxytable_save_table'] ) ) {
 			if ( ! isset( $_POST['roxytable_save_table_nonce'] ) || ! wp_verify_nonce( sanitize_key( $_POST['roxytable_save_table_nonce'] ), 'roxytable_save_table' ) ) {
@@ -352,8 +388,9 @@ class Admin_Menu {
 		// Enqueue Google Font Inter
 		wp_enqueue_style( 'roxytable-google-font-inter', 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap', [], ROXYTABLE_VERSION );
 
-		// Enqueue custom design system stylesheet
-		wp_enqueue_style( 'roxytable-admin-css', ROXYTABLE_URL . 'assets/css/admin.css', [], ROXYTABLE_VERSION );
+		// Enqueue custom design system stylesheet with automatic cache busting.
+		$admin_css = ROXYTABLE_PATH . 'assets/css/admin.css';
+		wp_enqueue_style( 'roxytable-admin-css', ROXYTABLE_URL . 'assets/css/admin.css', [], file_exists( $admin_css ) ? filemtime( $admin_css ) : ROXYTABLE_VERSION );
 
 		// Enqueue JS module
 		wp_enqueue_script( 'roxytable-admin-js', ROXYTABLE_URL . 'assets/js/admin.js', [], ROXYTABLE_VERSION, true );

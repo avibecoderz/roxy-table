@@ -265,6 +265,20 @@
 	color: var(--text-main);
 }
 
+/* Links entered into table cells */
+.roxytable-table td a {
+	color: inherit;
+	text-decoration: none !important;
+	border-bottom: 0 !important;
+}
+
+.roxytable-table td a:hover,
+.roxytable-table td a:focus {
+	color: var(--primary);
+	text-decoration: none !important;
+	border-bottom: 0 !important;
+}
+
 /* WordPress layout overrides for clean interface */
 #wpcontent {
 	padding-left: 0 !important;
@@ -372,6 +386,75 @@
 	}
 	.roxytable-steps-indicator > div[style*="flex-grow"] {
 		display: none;
+	}
+
+	.roxytable-card {
+		padding: 12px !important;
+	}
+
+	.roxytable-preview-wrapper,
+	.roxytable-embed,
+	.roxytable-card > form > div[style*="overflow-x:auto"] {
+		max-width: 100%;
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.roxytable-preview-table,
+	.roxytable-table {
+		display: table;
+		width: max-content !important;
+		min-width: 100%;
+		border-collapse: collapse !important;
+	}
+
+	.roxytable-preview-table thead,
+	.roxytable-table thead {
+		display: table-header-group;
+		position: static;
+		width: auto;
+		height: auto;
+		margin: 0;
+		overflow: visible;
+		clip: auto;
+		white-space: normal;
+	}
+
+	.roxytable-preview-table tbody,
+	.roxytable-table tbody {
+		display: table-row-group;
+	}
+
+	.roxytable-preview-table tr,
+	.roxytable-table tr {
+		display: table-row;
+		width: auto;
+		margin: 0;
+		border-radius: 0;
+		overflow: visible;
+	}
+
+	.roxytable-preview-table th,
+	.roxytable-preview-table td,
+	.roxytable-table th,
+	.roxytable-table td {
+		display: table-cell;
+		width: auto;
+		padding: 10px 12px !important;
+		text-align: left;
+		white-space: nowrap;
+		vertical-align: middle;
+		border-bottom: 1px solid var(--border-color);
+	}
+
+	.roxytable-preview-table td::before,
+	.roxytable-table td::before {
+		content: none;
+	}
+
+	.rt-pagination {
+		flex-wrap: wrap;
+		justify-content: flex-end;
 	}
 }
 
@@ -770,48 +853,58 @@ select.rt-field {
 
 /* Responsive table styles for small screens (mobile / Android) */
 @media (max-width: 768px) {
+	.roxytable-embed,
+	.roxytable-preview-wrapper,
+	.roxytable-card > form > div[style*="overflow-x:auto"] {
+		max-width: 100%;
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
 	.roxytable-embed .roxytable-table,
 	.roxytable-preview-table,
 	.roxytable-table {
-		width: 100%;
-		display: block;
+		display: table;
+		width: max-content !important;
+		min-width: 100%;
 		overflow: visible;
 	}
 
 	.roxytable-embed .roxytable-table thead,
 	.roxytable-preview-table thead,
 	.roxytable-table thead {
-		display: none;
+		display: table-header-group;
 	}
 
 	.roxytable-embed .roxytable-table tbody tr,
 	.roxytable-preview-table tbody tr,
 	.roxytable-table tbody tr {
-		display: block;
-		border: 1px solid rgba(0,0,0,0.06);
-		margin-bottom: 10px;
-		border-radius: 8px;
-		padding: 8px;
-		background: #fff;
+		display: table-row;
+		border: 0;
+		margin: 0;
+		border-radius: 0;
+		padding: 0;
+		background: transparent;
 	}
 
+	.roxytable-embed .roxytable-table th,
 	.roxytable-embed .roxytable-table td,
+	.roxytable-preview-table th,
 	.roxytable-preview-table td,
+	.roxytable-table th,
 	.roxytable-table td {
-		display: flex;
-		justify-content: space-between;
-		padding: 8px 6px;
-		border: none;
+		display: table-cell;
+		padding: 10px 12px !important;
+		text-align: left;
+		white-space: nowrap;
+		vertical-align: middle;
+		border-bottom: 1px solid var(--border-color);
 	}
 
 	.roxytable-embed .roxytable-table td::before,
 	.roxytable-preview-table td::before,
 	.roxytable-table td::before {
-		content: attr(data-label);
-		font-weight: 600;
-		color: var(--text-muted);
-		margin-right: 8px;
-		flex: 0 0 48%;
+		content: none;
 	}
 
 	.roxytable-controls { flex-direction: column; align-items: stretch; }

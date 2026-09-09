@@ -14,7 +14,13 @@ if ( ! $table ) {
 }
 
 $columns = Table_Repository::get_columns( $table_id );
-$rows = Table_Repository::get_rows( $table_id, 50, 0 );
+$per_page = 50;
+$total_rows = Table_Repository::count_rows( $table_id );
+$total_pages = max( 1, (int) ceil( $total_rows / $per_page ) );
+$current_page = isset( $_GET['paged'] ) ? max( 1, absint( wp_unslash( $_GET['paged'] ) ) ) : 1;
+$current_page = min( $current_page, $total_pages );
+$rows = Table_Repository::get_rows( $table_id, $per_page, ( $current_page - 1 ) * $per_page );
+$preview_url = admin_url( 'admin.php?page=roxytable-tables&action=preview&id=' . $table_id . '&paged=' );
 
 ?>
 <div class="roxytable-preview-admin" style="max-width:1200px;margin:0 auto;">
@@ -52,19 +58,19 @@ $rows = Table_Repository::get_rows( $table_id, 50, 0 );
                     <?php else : ?>
                         <?php foreach ( $rows as $r ) : ?>
                             <tr class="rt-preview-row" style="border-bottom:1px solid var(--border-color);">
-                                <?php foreach ( $r['cells'] as $cell ) : 
-                                    $cell_text = trim( (string) $cell );
-                                    $lc = strtolower( $cell_text );
+                                <?php foreach ( $r['cells'] as $cell_index => $cell ) :
+                                    $cell_text = trim( wp_strip_all_tags( (string) $cell ) );
+									$lc = strtolower( $cell_text );
                                     $is_status = false;
                                     $status_class = '';
                                     if ( in_array( $lc, [ 'passed', 'pass', 'passed' ], true ) ) { $is_status = true; $status_class = 'rt-status-pass'; }
                                     if ( in_array( $lc, [ 'referred', 'failed', 'fail' ], true ) ) { $is_status = true; $status_class = 'rt-status-refer'; }
                                 ?>
-                                    <td style="padding:12px 14px;">
+                                        <td data-label="<?php echo esc_attr( $columns[ $cell_index ]['name'] ?? '' ); ?>" style="padding:12px 14px;">
                                         <?php if ( $is_status ) : ?>
                                             <span class="rt-status-pill <?php echo esc_attr( $status_class ); ?>"><?php echo esc_html( $cell_text ); ?></span>
                                         <?php else : ?>
-                                            <?php echo esc_html( $cell_text ); ?>
+                                            <?php echo wp_kses_post( (string) $cell ); ?>
                                         <?php endif; ?>
                                     </td>
                                 <?php endforeach; ?>
@@ -76,12 +82,27 @@ $rows = Table_Repository::get_rows( $table_id, 50, 0 );
         </div>
 
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">
-            <div style="color:var(--text-muted);font-size:0.875rem;">Showing <?php echo count( $rows ); ?> of <?php echo intval( $table['total_rows'] ?? 0 ); ?> records</div>
+            <div style="color:var(--text-muted);font-size:0.875rem;">Showing <?php echo count( $rows ); ?> of <?php echo $total_rows; ?> records</div>
             <div class="rt-pagination" style="display:flex;gap:8px;align-items:center;">
-                <button class="roxytable-btn roxytable-btn-secondary" disabled>&lt; Prev</button>
-                <button class="roxytable-btn roxytable-btn-secondary">1</button>
-                <button class="roxytable-btn roxytable-btn-secondary">2</button>
-                <button class="roxytable-btn roxytable-btn-secondary">Next &gt;</button>
+                <?php if ( $current_page > 1 ) : ?>
+                    <a class="roxytable-btn roxytable-btn-secondary" href="<?php echo esc_url( $preview_url . ( $current_page - 1 ) ); ?>">&lt; Prev</a>
+                <?php else : ?>
+                    <button class="roxytable-btn roxytable-btn-secondary" disabled>&lt; Prev</button>
+                <?php endif; ?>
+
+                <?php for ( $page = 1; $page <= $total_pages; $page++ ) : ?>
+                    <?php if ( $page === $current_page ) : ?>
+                        <button class="roxytable-btn roxytable-btn-secondary" aria-current="page"><?php echo $page; ?></button>
+                    <?php else : ?>
+                        <a class="roxytable-btn roxytable-btn-secondary" href="<?php echo esc_url( $preview_url . $page ); ?>"><?php echo $page; ?></a>
+                    <?php endif; ?>
+                <?php endfor; ?>
+
+                <?php if ( $current_page < $total_pages ) : ?>
+                    <a class="roxytable-btn roxytable-btn-secondary" href="<?php echo esc_url( $preview_url . ( $current_page + 1 ) ); ?>">Next &gt;</a>
+                <?php else : ?>
+                    <button class="roxytable-btn roxytable-btn-secondary" disabled>Next &gt;</button>
+                <?php endif; ?>
             </div>
         </div>
     </div>

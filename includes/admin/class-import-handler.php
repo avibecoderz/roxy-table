@@ -139,16 +139,15 @@ class Import_Handler {
 			$reader = IOFactory::createReaderForFile( $file_path );
 			$reader->setReadDataOnly( true );
 			
-			// Load metadata lists
-			$sheet_names = $reader->listWorksheetNames( $file_path );
+			// listWorksheetNames() is not supported by the CSV reader. Worksheet
+			// names are included in the metadata returned by listWorksheetInfo().
 			$sheets_info = $reader->listWorksheetInfo( $file_path );
 
 			$worksheets = [];
-			foreach ( $sheet_names as $index => $name ) {
-				$info = isset( $sheets_info[ $index ] ) ? $sheets_info[ $index ] : null;
+			foreach ( $sheets_info as $index => $info ) {
 				$worksheets[] = [
 					'index' => $index,
-					'name'  => $name,
+					'name'  => isset( $info['worksheetName'] ) ? $info['worksheetName'] : 'Worksheet',
 					'rows'  => $info ? $info['totalRows'] : 0,
 					'cols'  => $info ? $info['totalColumns'] : 0,
 				];

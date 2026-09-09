@@ -554,7 +554,7 @@ class Table_Repository {
 			}
 
 			$sanitized = array_map(
-				static fn( $cell ) => sanitize_text_field( (string) $cell ),
+				static fn( $cell ) => wp_kses_post( (string) $cell ),
 				array_values( (array) $cells )
 			);
 

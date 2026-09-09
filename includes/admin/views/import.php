@@ -197,7 +197,8 @@ $stored       = \RoxyTable\Includes\Admin\Import_Handler::get_stored_data();
 					<thead>
 						<tr style="background-color: #f8fafc; border-bottom: 2px solid var(--border-color);">
 							<?php foreach ( $preview['headers'] as $index => $hdr ) : 
-								$display_name = ! empty( trim( $hdr ) ) ? esc_html( $hdr ) : sprintf( __( 'Column %s', 'roxytable' ), Coordinate::stringFromColumnIndex( $index + 1 ) );
+								$label = ! empty( trim( $hdr ) ) ? $hdr : sprintf( __( 'Column %s', 'roxytable' ), Coordinate::stringFromColumnIndex( $index + 1 ) );
+								$display_name = esc_html( $label );
 								$is_warning = empty( trim( $hdr ) ) ? 'style="color:#d97706; background-color:#fffbeb;"' : '';
 								?>
 								<th <?php echo $is_warning; ?> style="padding: 12px 16px; font-weight: 600; border-right: 1px solid var(--border-color);">
@@ -210,8 +211,10 @@ $stored       = \RoxyTable\Includes\Admin\Import_Handler::get_stored_data();
 						<?php if ( ! empty( $preview['rows'] ) ) : ?>
 							<?php foreach ( $preview['rows'] as $r_index => $row_cells ) : ?>
 								<tr style="border-bottom: 1px solid var(--border-color);">
-									<?php foreach ( $row_cells as $c_index => $cell ) : ?>
-										<td style="padding: 12px 16px; border-right: 1px solid var(--border-color);">
+									<?php foreach ( $row_cells as $c_index => $cell ) :
+										$cell_label = ! empty( trim( $preview['headers'][ $c_index ] ?? '' ) ) ? $preview['headers'][ $c_index ] : sprintf( __( 'Column %s', 'roxytable' ), Coordinate::stringFromColumnIndex( $c_index + 1 ) );
+									?>
+										<td data-label="<?php echo esc_attr( $cell_label ); ?>" style="padding: 12px 16px; border-right: 1px solid var(--border-color);">
 											<?php echo esc_html( $cell ); ?>
 										</td>
 									<?php endforeach; ?>

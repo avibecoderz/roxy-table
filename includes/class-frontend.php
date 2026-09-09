@@ -20,7 +20,8 @@ class Frontend {
 
     public function enqueue_assets() {
         // Lightweight: reuse admin CSS for basic table styling so shortcode renders nicely.
-        wp_enqueue_style( 'roxytable-frontend-css', ROXYTABLE_URL . 'assets/css/admin.css', [], ROXYTABLE_VERSION );
+        $frontend_css = ROXYTABLE_PATH . 'assets/css/admin.css';
+        wp_enqueue_style( 'roxytable-frontend-css', ROXYTABLE_URL . 'assets/css/admin.css', [], file_exists( $frontend_css ) ? filemtime( $frontend_css ) : ROXYTABLE_VERSION );
         wp_enqueue_script( 'roxytable-frontend-js', ROXYTABLE_URL . 'assets/js/frontend.js', [], ROXYTABLE_VERSION, true );
     }
 
@@ -53,10 +54,12 @@ class Frontend {
         }
 
         $columns = Table_Repository::get_columns( $table_id );
-        $rows = Table_Repository::get_rows( $table_id, 50, 0 );
+        // Load every row so the shortcode represents the complete published table.
+        $total_rows = Table_Repository::count_rows( $table_id );
+        $rows = Table_Repository::get_rows( $table_id, max( 1, $total_rows ), 0 );
 
         // Build a minimal HTML table.
-        $html = '<div class="roxytable-embed">';
+        $html = '<div class="roxytable-embed" style="max-width:100%;overflow-x:auto;">';
         $html .= '<table class="roxytable-table" style="width:100%;border-collapse:collapse;">';
         $html .= '<thead><tr>';
         foreach ( $columns as $col ) {
@@ -68,8 +71,10 @@ class Frontend {
         foreach ( $rows as $r ) {
             $html .= '<tr style="border-bottom:1px solid #f1f5f9;">';
             $cells = $r['cells'] ?? [];
-            foreach ( $cells as $cell ) {
-                $html .= '<td style="padding:8px;">' . esc_html( $cell ) . '</td>';
+            foreach ( $cells as $cell_index => $cell ) {
+                $label = $columns[ $cell_index ]['name'] ?? '';
+                // Keep safe markup such as institution links while filtering unsafe HTML.
+                $html .= '<td data-label="' . esc_attr( $label ) . '" style="padding:8px;">' . wp_kses_post( (string) $cell ) . '</td>';
             }
             $html .= '</tr>';
         }
