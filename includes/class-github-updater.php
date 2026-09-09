@@ -84,13 +84,18 @@ class Github_Updater {
 	 *
 	 * @param string $source Extracted source directory.
 	 * @param string $remote_source Temporary remote source directory.
-	 * @param object $wp_filesystem WordPress filesystem object.
+	 * @param object $upgrader WordPress upgrader instance.
 	 * @param array  $hook_extra Upgrader context.
 	 * @return string|\WP_Error
 	 */
-	public function fix_extracted_directory( $source, $remote_source, $wp_filesystem, $hook_extra ) {
+	public function fix_extracted_directory( $source, $remote_source, $upgrader, $hook_extra ) {
 		if ( empty( $hook_extra['plugin'] ) || $hook_extra['plugin'] !== $this->plugin_basename() ) {
 			return $source;
+		}
+
+		global $wp_filesystem;
+		if ( ! is_object( $wp_filesystem ) ) {
+			return new \WP_Error( 'roxytable_update_filesystem', __( 'Could not access the WordPress filesystem for the RoxyTable update.', 'roxytable' ) );
 		}
 
 		$target = trailingslashit( $remote_source ) . 'roxytable';
