@@ -21,6 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'ROXYTABLE_VERSION', '1.0.0' );
 define( 'ROXYTABLE_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ROXYTABLE_URL', plugin_dir_url( __FILE__ ) );
+define( 'ROXYTABLE_PLUGIN_FILE', __FILE__ );
 
 /**
  * Check for Composer dependencies.
@@ -123,6 +124,9 @@ register_deactivation_hook( __FILE__, 'deactivate_roxytable' );
  * Begins execution of the plugin.
  */
 function run_roxytable() {
+	// Register GitHub release updates through WordPress' native updater.
+	new RoxyTable\Includes\Github_Updater();
+
 	if ( class_exists( 'RoxyTable\\Includes\\RoxyTable' ) ) {
 		$plugin = RoxyTable\Includes\RoxyTable::get_instance();
 		$plugin->run();
