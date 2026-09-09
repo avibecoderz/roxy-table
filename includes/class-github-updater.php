@@ -143,7 +143,8 @@ class Github_Updater {
 
 		$release = [
 			'version'      => $tag,
-			'package'      => ! empty( $data['zipball_url'] ) ? esc_url_raw( $data['zipball_url'] ) : '',
+			// Use GitHub's stable tag archive URL instead of the API zipball redirect.
+			'package'      => 'https://github.com/' . self::REPOSITORY . '/archive/refs/tags/' . rawurlencode( (string) $data['tag_name'] ) . '.zip',
 			'html_url'     => ! empty( $data['html_url'] ) ? esc_url_raw( $data['html_url'] ) : 'https://github.com/' . self::REPOSITORY,
 			'published_at' => ! empty( $data['published_at'] ) ? sanitize_text_field( $data['published_at'] ) : '',
 			'body'         => ! empty( $data['body'] ) ? (string) $data['body'] : '',
