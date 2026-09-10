@@ -9,6 +9,7 @@ All notable changes to the RoxyTable WordPress plugin will be documented in this
 - **Developer Photo Media Uploader**: Integrated WordPress Media Library modal (`wp.media()`) to allow uploading and changing developer profile photos directly via native AJAX (`roxytable_save_profile`).
 - **Recent Tables & Table Thumbnail Uploader**: Upgraded Recent Tables card and All Tables list view with rounded 44x44px table thumbnail boxes, interactive camera overlay (`📷`), and native WordPress Media Library table thumbnail uploader (`roxytable_save_table_image`).
 - **UI Streamlining**: Streamlined table row actions for a clean, ultra-premium interface.
+- **Automatic WordPress Dashboard Updates**: Integrated robust native WordPress update system with custom GitHub Releases API tracking, `User-Agent` headers, private token security (`ROXYTABLE_GITHUB_TOKEN`), one-click "Check for updates" admin action link, instant transient cache flushing, and auto-update toggle compatibility.
 
 ## [1.0.3] - 2026-09-10
 
