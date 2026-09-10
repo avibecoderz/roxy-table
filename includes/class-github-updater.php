@@ -19,6 +19,7 @@ class Github_Updater {
 	 */
 	public function __construct() {
 		add_filter( 'pre_set_site_transient_update_plugins', [ $this, 'check_for_update' ] );
+		add_filter( 'site_transient_update_plugins', [ $this, 'check_for_update' ] );
 		add_filter( 'plugins_api', [ $this, 'plugin_information' ], 20, 3 );
 		add_filter( 'upgrader_source_selection', [ $this, 'fix_extracted_directory' ], 10, 4 );
 		add_filter( 'plugin_action_links_' . $this->plugin_basename(), [ $this, 'add_action_links' ] );
@@ -119,6 +120,9 @@ class Github_Updater {
 		if ( function_exists( 'delete_site_transient' ) ) {
 			delete_site_transient( 'update_plugins' );
 		}
+		if ( function_exists( 'wp_clean_plugins_cache' ) ) {
+			wp_clean_plugins_cache();
+		}
 
 		wp_safe_redirect( add_query_arg( 'roxytable_updated_checked', '1', admin_url( 'plugins.php' ) ) );
 		exit;
@@ -138,30 +142,44 @@ class Github_Updater {
 	 * @return object
 	 */
 	public function check_for_update( $transient ) {
-		if ( ! is_object( $transient ) || empty( $transient->checked ) ) {
-			return $transient;
+		if ( ! is_object( $transient ) ) {
+			$transient = new \stdClass();
 		}
 
 		$current_version = defined( 'ROXYTABLE_VERSION' ) ? ROXYTABLE_VERSION : '1.0.0';
-		$release         = $this->get_latest_release();
+		if ( ! empty( $transient->checked[ $this->plugin_basename() ] ) ) {
+			$current_version = $transient->checked[ $this->plugin_basename() ];
+		}
 
+		$release = $this->get_latest_release();
 		if ( ! $release ) {
 			return $transient;
 		}
 
 		$item = (object) [
-			'id'          => 'roxytable',
-			'slug'        => 'roxytable',
-			'plugin'      => $this->plugin_basename(),
-			'new_version' => $release['version'],
-			'url'         => $release['html_url'],
-			'package'     => $release['package'],
+			'id'           => 'roxytable',
+			'slug'         => 'roxytable',
+			'plugin'       => $this->plugin_basename(),
+			'new_version'  => $release['version'],
+			'url'          => $release['html_url'],
+			'package'      => $release['package'],
+			'requires'     => '7.4',
+			'requires_php' => '7.4',
 		];
+
+		if ( ! isset( $transient->response ) || ! is_array( $transient->response ) ) {
+			$transient->response = [];
+		}
+		if ( ! isset( $transient->no_update ) || ! is_array( $transient->no_update ) ) {
+			$transient->no_update = [];
+		}
 
 		if ( version_compare( $release['version'], $current_version, '>' ) ) {
 			$transient->response[ $this->plugin_basename() ] = $item;
+			unset( $transient->no_update[ $this->plugin_basename() ] );
 		} else {
 			$transient->no_update[ $this->plugin_basename() ] = $item;
+			unset( $transient->response[ $this->plugin_basename() ] );
 		}
 
 		return $transient;
