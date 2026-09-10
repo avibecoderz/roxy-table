@@ -27,7 +27,7 @@ $current_template = is_array( $table_settings ) && ! empty( $table_settings['tem
     </div>
 
     <div class="roxytable-card">
-        <form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-tables' ) ); ?>">
+        <form id="rt-edit-table-meta-form" method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-tables' ) ); ?>">
             <?php wp_nonce_field( 'roxytable_save_table', 'roxytable_save_table_nonce' ); ?>
             <input type="hidden" name="roxytable_save_table" value="1" />
             <input type="hidden" name="rt_table_id" value="<?php echo intval( $table_id ); ?>" />
@@ -85,7 +85,7 @@ $current_template = is_array( $table_settings ) && ! empty( $table_settings['tem
         <h4 class="rt-section-heading"><?php _e( 'Table Data', 'roxytable' ); ?></h4>
 		<p class="rt-hint" style="margin:0 0 10px;"><?php _e( 'To make an institution clickable, enter a link in its cell, for example: <a href="https://coren-eac.org">KHADAB UNIVERISITY KANO</a>', 'roxytable' ); ?></p>
         <div class="roxytable-card" style="margin-top:10px;">
-            <form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-tables&action=edit&id=' . $table_id ) ); ?>">
+            <form id="rt-edit-table-data-form" method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-tables&action=edit&id=' . $table_id ) ); ?>">
                 <?php wp_nonce_field( 'roxytable_save_data', 'roxytable_save_data_nonce' ); ?>
                 <input type="hidden" name="roxytable_save_data" value="1" />
                 <input type="hidden" name="rt_data_table_id" value="<?php echo esc_attr( $table_id ); ?>" />

@@ -9,6 +9,8 @@ document.addEventListener( 'DOMContentLoaded', () => {
 		initGlobalSearch();
 	}
 
+	initAjaxForms();
+
 	const urlParams  = new URLSearchParams( window.location.search );
 	const activePage = urlParams.get( 'page' ) || 'roxytable';
 
@@ -690,3 +692,545 @@ function initShortcodeCopy() {
 		}, 2000 );
 	} );
 }
+
+/* =========================================================
+   Native WordPress AJAX Handlers & Toast System
+   ========================================================= */
+
+function showToast( message, type = 'success' ) {
+	let container = document.querySelector( '.rt-toast-container' );
+	if ( ! container ) {
+		container = document.createElement( 'div' );
+		container.className = 'rt-toast-container';
+		document.body.appendChild( container );
+	}
+	const toast = document.createElement( 'div' );
+	toast.className = `rt-toast rt-toast-${type}`;
+	const icon = type === 'success' ? '✓' : ( type === 'error' ? '✕' : 'ℹ' );
+	toast.innerHTML = `<span style="font-weight:700;">${icon}</span> <span>${escHtml( message )}</span>`;
+	container.appendChild( toast );
+
+	setTimeout( () => {
+		toast.style.opacity = '0';
+		toast.style.transform = 'translateY(16px)';
+		setTimeout( () => toast.remove(), 300 );
+	}, 3500 );
+}
+
+function initAjaxForms() {
+	const ajaxData = window.roxyAdminData;
+	if ( ! ajaxData || ! ajaxData.ajax_url || ! ajaxData.nonces ) return;
+
+	// 1. Table Metadata Edit Form (#rt-edit-table-meta-form)
+	const metaForm = document.getElementById( 'rt-edit-table-meta-form' );
+	if ( metaForm ) {
+		metaForm.addEventListener( 'submit', async ( e ) => {
+			e.preventDefault();
+			const submitBtn = metaForm.querySelector( 'button[type="submit"]' );
+			const originalText = submitBtn ? submitBtn.textContent : '';
+
+			if ( submitBtn ) {
+				submitBtn.disabled = true;
+				submitBtn.textContent = ajaxData.i18n?.saving || 'Saving...';
+				submitBtn.style.opacity = '0.7';
+			}
+
+			try {
+				const formData = new FormData( metaForm );
+				formData.append( 'action', 'roxytable_save_table' );
+				formData.append( 'nonce', ajaxData.nonces.save_table );
+
+				const res = await fetch( ajaxData.ajax_url, {
+					method: 'POST',
+					body: formData
+				} );
+				const json = await res.json();
+
+				if ( json.success ) {
+					showToast( json.data?.message || ajaxData.i18n?.saved || 'Saved successfully!', 'success' );
+				} else {
+					showToast( json.data?.message || ajaxData.i18n?.error || 'An error occurred.', 'error' );
+				}
+			} catch ( err ) {
+				showToast( ajaxData.i18n?.error || 'An error occurred.', 'error' );
+			} finally {
+				if ( submitBtn ) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = originalText;
+					submitBtn.style.opacity = '1';
+				}
+			}
+		} );
+	}
+
+	// 2. Table Data Edit Form (#rt-edit-table-data-form)
+	const dataForm = document.getElementById( 'rt-edit-table-data-form' );
+	if ( dataForm ) {
+		dataForm.addEventListener( 'submit', async ( e ) => {
+			e.preventDefault();
+			const submitBtn = dataForm.querySelector( 'button[type="submit"]' );
+			const originalText = submitBtn ? submitBtn.textContent : '';
+
+			if ( submitBtn ) {
+				submitBtn.disabled = true;
+				submitBtn.textContent = ajaxData.i18n?.saving || 'Saving...';
+				submitBtn.style.opacity = '0.7';
+			}
+
+			try {
+				const formData = new FormData( dataForm );
+				formData.append( 'action', 'roxytable_save_data' );
+				formData.append( 'nonce', ajaxData.nonces.save_data );
+
+				const res = await fetch( ajaxData.ajax_url, {
+					method: 'POST',
+					body: formData
+				} );
+				const json = await res.json();
+
+				if ( json.success ) {
+					showToast( json.data?.message || ajaxData.i18n?.saved || 'Data saved successfully!', 'success' );
+				} else {
+					showToast( json.data?.message || ajaxData.i18n?.error || 'An error occurred.', 'error' );
+				}
+			} catch ( err ) {
+				showToast( ajaxData.i18n?.error || 'An error occurred.', 'error' );
+			} finally {
+				if ( submitBtn ) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = originalText;
+					submitBtn.style.opacity = '1';
+				}
+			}
+		} );
+	}
+
+	// 3. Single Table Delete Action (.rt-action-delete)
+	document.addEventListener( 'click', async ( e ) => {
+		const deleteLink = e.target.closest && e.target.closest( '.rt-action-delete' );
+		if ( ! deleteLink ) return;
+
+		e.preventDefault();
+
+		const message = deleteLink.dataset.confirm || 'Are you sure you want to delete this table?';
+		if ( ! window.confirm( message ) ) return;
+
+		const url = new URL( deleteLink.href, window.location.origin );
+		const tableId = url.searchParams.get( 'id' );
+		const nonce = url.searchParams.get( '_wpnonce' );
+
+		if ( ! tableId ) return;
+
+		const row = deleteLink.closest( 'tr' );
+		deleteLink.style.opacity = '0.5';
+		deleteLink.style.pointerEvents = 'none';
+
+		try {
+			const formData = new FormData();
+			formData.append( 'action', 'roxytable_delete_table' );
+			formData.append( 'table_id', tableId );
+			formData.append( 'nonce', nonce || '' );
+
+			const res = await fetch( ajaxData.ajax_url, {
+				method: 'POST',
+				body: formData
+			} );
+			const json = await res.json();
+
+			if ( json.success ) {
+				showToast( json.data?.message || 'Table deleted successfully!', 'success' );
+				if ( row ) {
+					row.style.transition = 'all 0.3s ease';
+					row.style.opacity = '0';
+					row.style.height = '0';
+					setTimeout( () => row.remove(), 300 );
+				}
+			} else {
+				showToast( json.data?.message || 'Failed to delete table.', 'error' );
+				deleteLink.style.opacity = '1';
+				deleteLink.style.pointerEvents = 'auto';
+			}
+		} catch ( err ) {
+			showToast( ajaxData.i18n?.error || 'An error occurred.', 'error' );
+			deleteLink.style.opacity = '1';
+			deleteLink.style.pointerEvents = 'auto';
+		}
+	} );
+
+	// 4. Bulk Table Actions Form (#rt-tables-bulk-form)
+	const bulkForm = document.getElementById( 'rt-tables-bulk-form' );
+	if ( bulkForm ) {
+		bulkForm.addEventListener( 'submit', async ( e ) => {
+			const actionSelect = bulkForm.querySelector( 'select[name="rt_bulk_action"]' );
+			const selectedAction = actionSelect ? actionSelect.value : '';
+
+			// CSV export requires native download navigation
+			if ( selectedAction === 'export_csv' || ! selectedAction ) return;
+
+			e.preventDefault();
+
+			const checkedBoxes = Array.from( bulkForm.querySelectorAll( 'input[name="rt_table_ids[]"]:checked' ) );
+			if ( checkedBoxes.length === 0 ) {
+				showToast( 'Please select at least one table.', 'error' );
+				return;
+			}
+
+			if ( selectedAction === 'delete' && ! window.confirm( `Are you sure you want to delete ${checkedBoxes.length} selected tables?` ) ) {
+				return;
+			}
+
+			const submitBtn = bulkForm.querySelector( 'button[name="roxytable_tables_bulk_action"]' );
+			const originalText = submitBtn ? submitBtn.textContent : '';
+			if ( submitBtn ) {
+				submitBtn.disabled = true;
+				submitBtn.textContent = ajaxData.i18n?.saving || 'Applying...';
+			}
+
+			try {
+				const formData = new FormData( bulkForm );
+				formData.append( 'action', 'roxytable_bulk_tables' );
+				formData.append( 'nonce', ajaxData.nonces.bulk_tables );
+
+				const res = await fetch( ajaxData.ajax_url, {
+					method: 'POST',
+					body: formData
+				} );
+				const json = await res.json();
+
+				if ( json.success ) {
+					showToast( json.data?.message || 'Bulk action applied successfully!', 'success' );
+					if ( json.data?.action === 'delete' ) {
+						checkedBoxes.forEach( ( cb ) => {
+							const tr = cb.closest( 'tr' );
+							if ( tr ) tr.remove();
+						} );
+					} else if ( json.data?.action === 'status' ) {
+						const newStatus = json.data?.status;
+						checkedBoxes.forEach( ( cb ) => {
+							const tr = cb.closest( 'tr' );
+							if ( tr ) {
+								const badge = tr.querySelector( 'td span[style*="border-radius"]' );
+								if ( badge ) {
+									if ( newStatus === 'published' ) {
+										badge.textContent = 'Published';
+										badge.style.background = '#ecfdf5';
+										badge.style.color = '#10b981';
+									} else {
+										badge.textContent = 'Draft';
+										badge.style.background = '#fffbeb';
+										badge.style.color = '#f59e0b';
+									}
+								}
+							}
+						} );
+					}
+				} else {
+					showToast( json.data?.message || ajaxData.i18n?.error || 'An error occurred.', 'error' );
+				}
+			} catch ( err ) {
+				showToast( ajaxData.i18n?.error || 'An error occurred.', 'error' );
+			} finally {
+				if ( submitBtn ) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = originalText;
+				}
+			}
+		} );
+	}
+
+	// 5. Template Selection Forms (.rt-template-form)
+	document.querySelectorAll( '.rt-template-form' ).forEach( ( form ) => {
+		form.addEventListener( 'submit', async ( e ) => {
+			e.preventDefault();
+			const submitBtn = form.querySelector( 'button[type="submit"]' );
+			const templateVal = submitBtn ? submitBtn.value : '';
+			const originalText = submitBtn ? submitBtn.textContent : '';
+
+			if ( submitBtn ) {
+				submitBtn.disabled = true;
+				submitBtn.textContent = 'Creating Table...';
+				submitBtn.style.opacity = '0.7';
+			}
+
+			try {
+				const formData = new FormData();
+				formData.append( 'action', 'roxytable_use_template' );
+				formData.append( 'template', templateVal );
+				formData.append( 'nonce', ajaxData.nonces.use_template );
+
+				const res = await fetch( ajaxData.ajax_url, {
+					method: 'POST',
+					body: formData
+				} );
+				const json = await res.json();
+
+				if ( json.success && json.data?.redirect_url ) {
+					showToast( json.data?.message || 'Template applied!', 'success' );
+					setTimeout( () => {
+						window.location.href = json.data.redirect_url;
+					}, 500 );
+				} else {
+					showToast( json.data?.message || 'Failed to apply template.', 'error' );
+					if ( submitBtn ) {
+						submitBtn.disabled = false;
+						submitBtn.textContent = originalText;
+						submitBtn.style.opacity = '1';
+					}
+				}
+			} catch ( err ) {
+				showToast( 'An error occurred.', 'error' );
+				if ( submitBtn ) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = originalText;
+					submitBtn.style.opacity = '1';
+				}
+			}
+		} );
+	} );
+
+	// 6. Import Step 1 Upload Form (#roxytable-upload-form)
+	const uploadForm = document.getElementById( 'roxytable-upload-form' );
+	if ( uploadForm ) {
+		uploadForm.addEventListener( 'submit', async ( e ) => {
+			e.preventDefault();
+			const submitBtn = document.getElementById( 'roxytable-upload-submit' );
+			const originalText = submitBtn ? submitBtn.textContent : '';
+
+			if ( submitBtn ) {
+				submitBtn.disabled = true;
+				submitBtn.textContent = ajaxData.i18n?.uploading || 'Uploading file...';
+				submitBtn.style.opacity = '0.7';
+			}
+
+			try {
+				const formData = new FormData( uploadForm );
+				formData.append( 'action', 'roxytable_upload_file' );
+				formData.append( 'nonce', ajaxData.nonces.upload_file );
+
+				const res = await fetch( ajaxData.ajax_url, {
+					method: 'POST',
+					body: formData
+				} );
+				const json = await res.json();
+
+				if ( json.success ) {
+					showToast( json.data?.message || 'File uploaded successfully!', 'success' );
+					setTimeout( () => {
+						window.location.href = window.location.pathname + '?page=roxytable-import&step=2';
+					}, 400 );
+				} else {
+					showToast( json.data?.message || 'Upload failed.', 'error' );
+					if ( submitBtn ) {
+						submitBtn.disabled = false;
+						submitBtn.textContent = originalText;
+						submitBtn.style.opacity = '1';
+					}
+				}
+			} catch ( err ) {
+				showToast( 'An error occurred while uploading.', 'error' );
+				if ( submitBtn ) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = originalText;
+					submitBtn.style.opacity = '1';
+				}
+			}
+		} );
+	}
+
+	// 7. Import Step 3 Confirm Form (#rt-confirm-import-form)
+	const confirmImportForm = document.getElementById( 'rt-confirm-import-form' );
+	if ( confirmImportForm ) {
+		confirmImportForm.addEventListener( 'submit', async ( e ) => {
+			e.preventDefault();
+			const submitBtn = document.getElementById( 'rt-submit-import' );
+			const originalText = submitBtn ? submitBtn.textContent : '';
+
+			if ( submitBtn ) {
+				submitBtn.disabled = true;
+				submitBtn.textContent = ajaxData.i18n?.saving || 'Saving Table...';
+				submitBtn.style.opacity = '0.7';
+			}
+
+			try {
+				const formData = new FormData( confirmImportForm );
+				formData.append( 'action', 'roxytable_confirm_import' );
+				formData.append( 'nonce', ajaxData.nonces.confirm_import );
+
+				const res = await fetch( ajaxData.ajax_url, {
+					method: 'POST',
+					body: formData
+				} );
+				const json = await res.json();
+
+				if ( json.success && json.data?.redirect_url ) {
+					showToast( json.data?.message || 'Table imported successfully!', 'success' );
+					setTimeout( () => {
+						window.location.href = json.data.redirect_url;
+					}, 400 );
+				} else {
+					showToast( json.data?.message || 'Failed to confirm import.', 'error' );
+					if ( submitBtn ) {
+						submitBtn.disabled = false;
+						submitBtn.textContent = originalText;
+						submitBtn.style.opacity = '1';
+					}
+				}
+			} catch ( err ) {
+				showToast( 'An error occurred while saving table.', 'error' );
+				if ( submitBtn ) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = originalText;
+					submitBtn.style.opacity = '1';
+				}
+			}
+		} );
+	}
+
+	// 8. Developer Profile Photo Uploader (#rt-edit-dev-profile-btn, #rt-change-photo-btn)
+	const triggerBtns = [
+		document.getElementById( 'rt-edit-dev-profile-btn' ),
+		document.getElementById( 'rt-change-photo-btn' )
+	].filter( Boolean );
+
+	if ( triggerBtns.length > 0 ) {
+		let mediaFrame = null;
+
+		triggerBtns.forEach( ( btn ) => {
+			btn.addEventListener( 'click', ( e ) => {
+				e.preventDefault();
+
+				if ( typeof wp === 'undefined' || ! wp.media ) {
+					showToast( 'WordPress Media Library is not available.', 'error' );
+					return;
+				}
+
+				if ( mediaFrame ) {
+					mediaFrame.open();
+					return;
+				}
+
+				mediaFrame = wp.media({
+					title: 'Select Developer Profile Image',
+					button: { text: 'Use as Profile Image' },
+					multiple: false
+				});
+
+				mediaFrame.on( 'select', async () => {
+					const selection = mediaFrame.state().get('selection');
+					const attachment = selection ? selection.first().toJSON() : null;
+
+					if ( attachment && attachment.url ) {
+						const newAvatarUrl = attachment.url;
+
+						// Update avatar image in DOM immediately
+						const avatarImg = document.getElementById( 'rt-dev-avatar-img' );
+						if ( avatarImg ) {
+							avatarImg.src = newAvatarUrl;
+						}
+
+						// Persist choice via AJAX
+						try {
+							const formData = new FormData();
+							formData.append( 'action', 'roxytable_save_profile' );
+							formData.append( 'nonce', ajaxData.nonces.save_profile );
+							formData.append( 'avatar_url', newAvatarUrl );
+
+							const res = await fetch( ajaxData.ajax_url, {
+								method: 'POST',
+								body: formData
+							} );
+							const json = await res.json();
+
+							if ( json.success ) {
+								showToast( json.data?.message || 'Profile photo updated successfully!', 'success' );
+							} else {
+								showToast( json.data?.message || 'Failed to update profile photo.', 'error' );
+							}
+						} catch ( err ) {
+							showToast( 'An error occurred while saving profile photo.', 'error' );
+						}
+					}
+				});
+
+				mediaFrame.open();
+			} );
+		} );
+	}
+
+	// 9. Table Image Thumbnail Picker (.rt-table-image-picker)
+	document.addEventListener( 'click', ( e ) => {
+		const picker = e.target.closest && e.target.closest( '.rt-table-image-picker' );
+		if ( ! picker ) return;
+
+		e.preventDefault();
+
+		const tableId = picker.dataset.tableId;
+		if ( ! tableId ) return;
+
+		if ( typeof wp === 'undefined' || ! wp.media ) {
+			showToast( 'WordPress Media Library is not available.', 'error' );
+			return;
+		}
+
+		const frame = wp.media({
+			title: 'Select Table Image Thumbnail',
+			button: { text: 'Use as Table Image' },
+			multiple: false
+		});
+
+		frame.on( 'select', async () => {
+			const selection = frame.state().get('selection');
+			const attachment = selection ? selection.first().toJSON() : null;
+
+			if ( attachment && attachment.url ) {
+				const imageUrl = attachment.url;
+
+				// Dynamically update DOM image inside the row
+				const row = picker.closest( 'tr' );
+				if ( row ) {
+					const thumbWrap = row.querySelector( '.rt-table-thumb-wrap' );
+					if ( thumbWrap ) {
+						let img = thumbWrap.querySelector( '.rt-table-thumb-img' );
+						if ( ! img ) {
+							const defaultSvg = thumbWrap.querySelector( '.rt-table-thumb-default' );
+							if ( defaultSvg ) defaultSvg.remove();
+
+							img = document.createElement( 'img' );
+							img.className = 'rt-table-thumb-img';
+							thumbWrap.insertBefore( img, thumbWrap.firstChild );
+						}
+						img.src = imageUrl;
+					}
+				}
+
+				// AJAX update
+				try {
+					const formData = new FormData();
+					formData.append( 'action', 'roxytable_save_table_image' );
+					formData.append( 'nonce', ajaxData.nonces.save_table_image );
+					formData.append( 'table_id', tableId );
+					formData.append( 'image_url', imageUrl );
+
+					const res = await fetch( ajaxData.ajax_url, {
+						method: 'POST',
+						body: formData
+					} );
+					const json = await res.json();
+
+					if ( json.success ) {
+						showToast( json.data?.message || 'Table thumbnail image updated!', 'success' );
+					} else {
+						showToast( json.data?.message || 'Failed to update table image.', 'error' );
+					}
+				} catch ( err ) {
+					showToast( 'An error occurred while saving table image.', 'error' );
+				}
+			}
+		});
+
+		frame.open();
+	} );
+}
+
+
+

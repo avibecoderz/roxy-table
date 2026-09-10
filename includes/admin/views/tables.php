@@ -80,7 +80,7 @@ $base_url = admin_url( 'admin.php?page=roxytable-tables' );
 			</div>
 		</div>
 	<?php else : ?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-tables' ) ); ?>" class="roxytable-card" style="padding: 0; overflow: hidden;">
+		<form id="rt-tables-bulk-form" method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-tables' ) ); ?>" class="roxytable-card" style="padding: 0; overflow: hidden;">
 			<?php wp_nonce_field( 'roxytable_bulk_tables', 'roxytable_bulk_tables_nonce' ); ?>
 			<div class="rt-bulk-actions" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border-color); background: rgba(248,250,252,0.5); flex-wrap: wrap; gap: 12px;">
 				<div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
@@ -125,13 +125,30 @@ $base_url = admin_url( 'admin.php?page=roxytable-tables' );
 							<tr style="border-bottom: 1px solid var(--border-color);">
 								<td style="padding: 12px 16px;"><input type="checkbox" name="rt_table_ids[]" value="<?php echo intval( $table['id'] ); ?>" /></td>
 								<td style="padding: 12px 16px;">
-									<div style="font-weight: 700; color: var(--text-main);"><?php echo esc_html( $table['name'] ); ?></div>
-									<div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">ID <?php echo intval( $table['id'] ); ?> · /<?php echo esc_html( $table['slug'] ); ?>/</div>
+									<div style="display: flex; align-items: center; gap: 12px;">
+										<div class="rt-table-thumb-wrap rt-table-image-picker" data-table-id="<?php echo intval( $table['id'] ); ?>" title="<?php esc_attr_e( 'Click to set or change table image', 'roxytable' ); ?>">
+											<?php if ( ! empty( $table['image'] ) ) : ?>
+												<img class="rt-table-thumb-img" src="<?php echo esc_url( $table['image'] ); ?>" alt="<?php echo esc_attr( $table['name'] ); ?>" />
+											<?php else : ?>
+												<div class="rt-table-thumb-default">
+													<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px;color:#10b981;">
+														<path fill-rule="evenodd" d="M3 6a3 3 0 013-3h12a3 3 0 013 3v12a3 3 0 01-3 3H6a3 3 0 01-3-3V6zm3-1.5A1.5 1.5 0 004.5 6v12A1.5 1.5 0 006 19.5h12a1.5 1.5 0 001.5-1.5V6A1.5 1.5 0 0018 4.5H6z" clip-rule="evenodd" />
+														<path d="M7.5 7.5h9v1.5h-9V7.5zm0 3.75h9v1.5h-9v-1.5zm0 3.75h6v1.5h-6v-1.5z" />
+													</svg>
+												</div>
+											<?php endif; ?>
+											<div class="rt-table-thumb-overlay" aria-hidden="true">📷</div>
+										</div>
+										<div>
+											<div style="font-weight: 700; color: var(--text-main); font-size: 0.95rem;"><?php echo esc_html( $table['name'] ); ?></div>
+											<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">ID <?php echo intval( $table['id'] ); ?> · /<?php echo esc_html( $table['slug'] ); ?>/</div>
+										</div>
+									</div>
 								</td>
 								<td style="padding: 12px 16px; color: var(--text-muted); max-width: 220px;"><?php echo esc_html( $table['description'] ); ?></td>
 								<td style="padding: 12px 16px; font-weight: 600; color: var(--text-main);"><?php echo number_format_i18n( intval( $table['total_rows'] ) ); ?></td>
 								<td style="padding: 12px 16px; font-weight: 600; color: var(--text-main);"><?php echo number_format_i18n( intval( $table['total_columns'] ) ); ?></td>
-								<td style="padding: 12px 16px;"><span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: <?php echo 'published' === $table['status'] ? '#ecfdf5' : '#fffbeb'; ?>; color: <?php echo 'published' === $table['status'] ? '#10b981' : '#f59e0b'; ?>;"><?php echo 'published' === $table['status'] ? __( 'Published', 'roxytable' ) : __( 'Draft', 'roxytable' ); ?></span></td>
+								<td style="padding: 12px 16px;"><span class="<?php echo 'published' === strtolower( $table['status'] ) ? 'rt-badge-status-published' : 'rt-badge-status-draft'; ?>"><?php echo 'published' === strtolower( $table['status'] ) ? __( 'Published', 'roxytable' ) : __( 'Draft', 'roxytable' ); ?></span></td>
 								<td style="padding: 12px 16px; color: var(--text-muted);"><?php echo esc_html( $table['updated_at'] ); ?></td>
 								<td style="padding: 12px 16px;">
 									<button type="button" class="roxytable-btn roxytable-btn-secondary rt-copy-shortcode" data-shortcode="[roxytable id=&quot;<?php echo intval( $table['id'] ); ?>&quot;]" style="padding: 6px 10px; font-size: 0.8125rem;"><?php _e( 'Copy', 'roxytable' ); ?></button>

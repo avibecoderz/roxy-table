@@ -313,11 +313,13 @@ $stored       = \RoxyTable\Includes\Admin\Import_Handler::get_stored_data();
 						<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
 							<?php
 							$feature_toggles = [
-								'rt_feat_search'     => [ 'label' => __( 'Enable search', 'roxytable' ),           'default' => true ],
-								'rt_feat_sort'       => [ 'label' => __( 'Enable sort', 'roxytable' ),             'default' => true ],
-								'rt_feat_pagination' => [ 'label' => __( 'Enable pagination', 'roxytable' ),       'default' => true ],
-								'rt_feat_visibility' => [ 'label' => __( 'Column visibility toggle', 'roxytable' ),'default' => true ],
-								'rt_feat_export'     => [ 'label' => __( 'Enable export (CSV)', 'roxytable' ),    'default' => false ],
+								'rt_feat_search'       => [ 'label' => __( 'Enable search', 'roxytable' ),           'default' => true ],
+								'rt_feat_sheet_filter' => [ 'label' => __( 'Sheet-based filtering', 'roxytable' ),   'default' => true ],
+								'rt_feat_table_filter' => [ 'label' => __( 'Table-based filtering', 'roxytable' ),   'default' => true ],
+								'rt_feat_sort'         => [ 'label' => __( 'Enable sort', 'roxytable' ),             'default' => true ],
+								'rt_feat_pagination'   => [ 'label' => __( 'Enable pagination', 'roxytable' ),       'default' => true ],
+								'rt_feat_visibility'   => [ 'label' => __( 'Column visibility toggle', 'roxytable' ),'default' => true ],
+								'rt_feat_export'       => [ 'label' => __( 'Enable export (CSV)', 'roxytable' ),    'default' => false ],
 							];
 							foreach ( $feature_toggles as $field_name => $feat ) : ?>
 								<label class="rt-toggle-label">

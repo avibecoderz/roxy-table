@@ -45,11 +45,9 @@ class RoxyTable {
 	public function init() {
 		if ( is_admin() ) {
 			new \RoxyTable\Includes\Admin\Admin_Menu();
-		} else {
-			// Frontend behaviour (shortcode and assets)
-			if ( class_exists( '\\RoxyTable\\Includes\\Frontend' ) ) {
-				new \RoxyTable\Includes\Frontend();
-			}
+		}
+		if ( class_exists( '\\RoxyTable\\Includes\\Frontend' ) ) {
+			new \RoxyTable\Includes\Frontend();
 		}
 	}
 }

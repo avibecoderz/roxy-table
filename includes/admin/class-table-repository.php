@@ -114,7 +114,7 @@ class Table_Repository {
 			$params[] = gmdate( 'Y-m-d H:i:s', strtotime( '-30 days' ) );
 		}
 
-		$sql = "SELECT id, name, slug, description, status, total_rows, total_columns, updated_at FROM {$table_name}";
+		$sql = "SELECT id, name, slug, description, status, total_rows, total_columns, settings, updated_at FROM {$table_name}";
 		if ( ! empty( $where ) ) {
 			$sql .= ' WHERE ' . implode( ' AND ', $where );
 		}
@@ -123,7 +123,16 @@ class Table_Repository {
 		$params[] = $offset;
 
 		$query = $wpdb->prepare( $sql, $params );
-		return $wpdb->get_results( $query, \ARRAY_A ) ?: [];
+		$results = $wpdb->get_results( $query, \ARRAY_A ) ?: [];
+
+		foreach ( $results as &$row ) {
+			$decoded = json_decode( (string) ( $row['settings'] ?? '' ), true );
+			$row['settings'] = is_array( $decoded ) ? $decoded : [];
+			$row['image']    = $row['settings']['image'] ?? '';
+		}
+		unset( $row );
+
+		return $results;
 	}
 
 	/**
@@ -487,6 +496,324 @@ class Table_Repository {
 		return (int) $wpdb->get_var(
 			$wpdb->prepare( "SELECT COUNT(*) FROM {$rows_table} WHERE {$where}", $params )
 		);
+	}
+
+	/**
+	 * Compute column statistics (unique categorical values and numeric range min/max) for a table.
+	 *
+	 * @param int $table_id Table ID.
+	 * @return array Map of column_index => [ 'name', 'type', 'is_numeric', 'min', 'max', 'categories' => [...] ]
+	 */
+	public static function get_column_statistics( int $table_id ) : array {
+		global $wpdb;
+
+		$columns = self::get_columns( $table_id );
+		if ( empty( $columns ) ) {
+			return [];
+		}
+
+		$stats = [];
+		foreach ( $columns as $idx => $col ) {
+			$stats[ $idx ] = [
+				'index'      => $idx,
+				'name'       => $col['name'],
+				'type'       => $col['type'],
+				'is_numeric' => ( 'number' === $col['type'] ),
+				'min'        => null,
+				'max'        => null,
+				'categories' => [],
+			];
+		}
+
+		$rows_table = $wpdb->prefix . 'roxy_rows';
+		$offset     = 0;
+		$col_values = [];
+		$col_nums   = [];
+
+		do {
+			$batch = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT data FROM {$rows_table} WHERE table_id = %d ORDER BY id ASC LIMIT %d OFFSET %d",
+					$table_id,
+					self::ROW_CHUNK_SIZE,
+					$offset
+				),
+				\ARRAY_A
+			) ?: [];
+
+			foreach ( $batch as $r ) {
+				$cells = json_decode( (string) $r['data'], true );
+				if ( ! is_array( $cells ) ) {
+					continue;
+				}
+				foreach ( $cells as $idx => $val ) {
+					if ( ! isset( $stats[ $idx ] ) ) {
+						continue;
+					}
+					$clean_val = trim( wp_strip_all_tags( (string) $val ) );
+					if ( '' === $clean_val ) {
+						continue;
+					}
+
+					if ( ! isset( $col_values[ $idx ] ) ) {
+						$col_values[ $idx ] = [];
+						$col_nums[ $idx ]   = [];
+					}
+
+					$col_values[ $idx ][ $clean_val ] = true;
+
+					if ( is_numeric( str_replace( [ ',', '$', '€', '£', '%' ], '', $clean_val ) ) ) {
+						$num = (float) str_replace( [ ',', '$', '€', '£', '%' ], '', $clean_val );
+						$col_nums[ $idx ][] = $num;
+					}
+				}
+			}
+
+			$offset += self::ROW_CHUNK_SIZE;
+		} while ( count( $batch ) === self::ROW_CHUNK_SIZE );
+
+		foreach ( $stats as $idx => &$st ) {
+			if ( self::is_serial_column( $st['name'] ) ) {
+				$st['is_numeric'] = false;
+				$st['categories'] = [];
+				$st['min']        = null;
+				$st['max']        = null;
+				continue;
+			}
+
+			if ( ! empty( $col_values[ $idx ] ) ) {
+				$cats = array_keys( $col_values[ $idx ] );
+				natcasesort( $cats );
+				$st['categories'] = array_values( $cats );
+			}
+
+			if ( ! empty( $col_nums[ $idx ] ) && ( count( $col_nums[ $idx ] ) >= count( $st['categories'] ) * 0.5 || 'number' === $st['type'] ) ) {
+				$st['is_numeric'] = true;
+				$st['min']        = min( $col_nums[ $idx ] );
+				$st['max']        = max( $col_nums[ $idx ] );
+			}
+		}
+		unset( $st );
+
+		return $stats;
+	}
+
+	/**
+	 * Test if a column name represents a serial number (#, S/N, SN, etc.).
+	 *
+	 * @param string $name Column name.
+	 * @return bool
+	 */
+	private static function is_serial_column( string $name ) : bool {
+		$clean = strtolower( trim( $name ) );
+		return in_array( $clean, [ '#', 's/n', 'sn', 's.n.', 's.n', 'serial', 'serial no', 'serial number', 'no.', 'no', 'index', 'sl', 'sl.no', 'sl. no.' ], true );
+	}
+
+	/**
+	 * Get filtered rows for AJAX requests supporting text search, categorical filters, range sliders, and multi-condition sheet rules.
+	 *
+	 * @param int   $table_id Table ID.
+	 * @param array $args Filter arguments.
+	 * @return array Result set containing rows, total_matched, total_rows.
+	 */
+	public static function get_filtered_rows( int $table_id, array $args = [] ) : array {
+		global $wpdb;
+
+		$limit    = max( 1, intval( $args['limit'] ?? 25 ) );
+		$offset   = max( 0, intval( $args['offset'] ?? 0 ) );
+		$search   = isset( $args['search'] ) ? trim( (string) $args['search'] ) : '';
+		$sort_col = isset( $args['sort_col'] ) ? intval( $args['sort_col'] ) : -1;
+		$sort_dir = isset( $args['sort_dir'] ) && strtolower( (string) $args['sort_dir'] ) === 'desc' ? -1 : 1;
+
+		$categorical = is_array( $args['categorical'] ?? null ) ? $args['categorical'] : [];
+		$range       = is_array( $args['range'] ?? null ) ? $args['range'] : [];
+		$sheet_rules = is_array( $args['sheet_rules'] ?? null ) ? $args['sheet_rules'] : [];
+		$rule_match  = isset( $args['rule_match'] ) && strtolower( (string) $args['rule_match'] ) === 'or' ? 'or' : 'and';
+
+		$rows_table = $wpdb->prefix . 'roxy_rows';
+
+		$raw_rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, position, data FROM {$rows_table} WHERE table_id = %d ORDER BY position ASC, id ASC",
+				$table_id
+			),
+			\ARRAY_A
+		) ?: [];
+
+		$total_rows = count( $raw_rows );
+		$matched    = [];
+
+		foreach ( $raw_rows as $row ) {
+			$cells = json_decode( (string) $row['data'], true );
+			if ( ! is_array( $cells ) ) {
+				$cells = [];
+			}
+			$cells = array_values( $cells );
+
+			// 1. Global search match
+			if ( '' !== $search ) {
+				$search_match = false;
+				$lower_q      = mb_strtolower( $search );
+				foreach ( $cells as $cell ) {
+					$plain = mb_strtolower( wp_strip_all_tags( (string) $cell ) );
+					if ( str_contains( $plain, $lower_q ) ) {
+						$search_match = true;
+						break;
+					}
+				}
+				if ( ! $search_match ) {
+					continue;
+				}
+			}
+
+			// 2. Categorical dropdown filters
+			if ( ! empty( $categorical ) ) {
+				$cat_match = true;
+				foreach ( $categorical as $c_idx => $allowed ) {
+					$c_idx = (int) $c_idx;
+					if ( empty( $allowed ) ) {
+						continue;
+					}
+					$allowed_arr = is_array( $allowed ) ? $allowed : [ (string) $allowed ];
+					$cell_val    = trim( wp_strip_all_tags( (string) ( $cells[ $c_idx ] ?? '' ) ) );
+					if ( ! in_array( $cell_val, $allowed_arr, true ) ) {
+						$cat_match = false;
+						break;
+					}
+				}
+				if ( ! $cat_match ) {
+					continue;
+				}
+			}
+
+			// 3. Numerical range slider filters
+			if ( ! empty( $range ) ) {
+				$range_match = true;
+				foreach ( $range as $c_idx => $bounds ) {
+					$c_idx = (int) $c_idx;
+					if ( ! is_array( $bounds ) ) {
+						continue;
+					}
+					$raw_cell = trim( wp_strip_all_tags( (string) ( $cells[ $c_idx ] ?? '' ) ) );
+					$num_val  = (float) str_replace( [ ',', '$', '€', '£', '%' ], '', $raw_cell );
+
+					if ( isset( $bounds['min'] ) && '' !== $bounds['min'] ) {
+						if ( $num_val < (float) $bounds['min'] ) {
+							$range_match = false;
+							break;
+						}
+					}
+					if ( isset( $bounds['max'] ) && '' !== $bounds['max'] ) {
+						if ( $num_val > (float) $bounds['max'] ) {
+							$range_match = false;
+							break;
+						}
+					}
+				}
+				if ( ! $range_match ) {
+					continue;
+				}
+			}
+
+			// 4. Multi-condition sheet filter rules
+			if ( ! empty( $sheet_rules ) ) {
+				$rule_results = [];
+				foreach ( $sheet_rules as $rule ) {
+					if ( ! isset( $rule['col'] ) || ! isset( $rule['op'] ) ) {
+						continue;
+					}
+					$col_i = (int) $rule['col'];
+					$op    = (string) $rule['op'];
+					$target_val = isset( $rule['val'] ) ? (string) $rule['val'] : '';
+					$target_val2 = isset( $rule['val2'] ) ? (string) $rule['val2'] : '';
+					$cell_str   = trim( wp_strip_all_tags( (string) ( $cells[ $col_i ] ?? '' ) ) );
+					$cell_num   = (float) str_replace( [ ',', '$', '€', '£', '%' ], '', $cell_str );
+
+					$r_pass = false;
+					switch ( $op ) {
+						case 'equals':
+							$r_pass = ( mb_strtolower( $cell_str ) === mb_strtolower( $target_val ) );
+							break;
+						case 'not_equals':
+							$r_pass = ( mb_strtolower( $cell_str ) !== mb_strtolower( $target_val ) );
+							break;
+						case 'contains':
+							$r_pass = str_contains( mb_strtolower( $cell_str ), mb_strtolower( $target_val ) );
+							break;
+						case 'not_contains':
+							$r_pass = ! str_contains( mb_strtolower( $cell_str ), mb_strtolower( $target_val ) );
+							break;
+						case 'starts_with':
+							$r_pass = str_starts_with( mb_strtolower( $cell_str ), mb_strtolower( $target_val ) );
+							break;
+						case 'ends_with':
+							$r_pass = str_ends_with( mb_strtolower( $cell_str ), mb_strtolower( $target_val ) );
+							break;
+						case 'greater_than':
+							$r_pass = ( $cell_num > (float) $target_val );
+							break;
+						case 'greater_than_equal':
+							$r_pass = ( $cell_num >= (float) $target_val );
+							break;
+						case 'less_than':
+							$r_pass = ( $cell_num < (float) $target_val );
+							break;
+						case 'less_than_equal':
+							$r_pass = ( $cell_num <= (float) $target_val );
+							break;
+						case 'between':
+							$r_pass = ( $cell_num >= (float) $target_val && $cell_num <= (float) $target_val2 );
+							break;
+						case 'is_empty':
+							$r_pass = ( '' === $cell_str );
+							break;
+						case 'is_not_empty':
+							$r_pass = ( '' !== $cell_str );
+							break;
+					}
+					$rule_results[] = $r_pass;
+				}
+
+				if ( ! empty( $rule_results ) ) {
+					if ( 'or' === $rule_match ) {
+						if ( ! in_array( true, $rule_results, true ) ) {
+							continue;
+						}
+					} else {
+						if ( in_array( false, $rule_results, true ) ) {
+							continue;
+						}
+					}
+				}
+			}
+
+			$matched[] = [
+				'id'       => (int) $row['id'],
+				'position' => (int) $row['position'],
+				'cells'    => $cells,
+			];
+		}
+
+		if ( $sort_col >= 0 ) {
+			usort( $matched, function( $a, $b ) use ( $sort_col, $sort_dir ) {
+				$val_a = (string) ( $a['cells'][ $sort_col ] ?? '' );
+				$val_b = (string) ( $b['cells'][ $sort_col ] ?? '' );
+
+				if ( is_numeric( $val_a ) && is_numeric( $val_b ) ) {
+					return $sort_dir * ( (float) $val_a <=> (float) $val_b );
+				}
+				return $sort_dir * strnatcasecmp( $val_a, $val_b );
+			} );
+		}
+
+		$total_matched = count( $matched );
+		$paged_rows    = array_slice( $matched, $offset, $limit );
+
+		return [
+			'rows'          => $paged_rows,
+			'total_matched' => $total_matched,
+			'total_rows'    => $total_rows,
+		];
 	}
 
 	/**

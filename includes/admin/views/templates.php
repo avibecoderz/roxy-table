@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<div style="padding: 20px;">
 				<h4 style="font-size: 1rem; font-weight: 600; margin: 0 0 4px 0; color: var(--text-main);"><?php _e( 'Indigo Clean', 'roxytable' ); ?></h4>
 				<p style="color: var(--text-muted); font-size: 0.825rem; margin: 0 0 16px 0;"><?php _e( 'Modern clean borders, rounded layout, colored header cells and smooth pagination indicators.', 'roxytable' ); ?></p>
-				<form method="post">
+				<form method="post" class="rt-template-form">
 					<?php wp_nonce_field( 'roxytable_use_template', 'roxytable_template_nonce' ); ?>
 					<button type="submit" name="roxytable_use_template" value="indigo" class="roxytable-btn roxytable-btn-secondary" style="width: 100%;"><?php _e( 'Use Template', 'roxytable' ); ?></button>
 				</form>
@@ -34,7 +34,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<div style="padding: 20px;">
 				<h4 style="font-size: 1rem; font-weight: 600; margin: 0 0 4px 0; color: var(--text-main);"><?php _e( 'Dark Minimal', 'roxytable' ); ?></h4>
 				<p style="color: var(--text-muted); font-size: 0.825rem; margin: 0 0 16px 0;"><?php _e( 'A gorgeous sleek obsidian header, thin divider borders, perfect for dark mode sites.', 'roxytable' ); ?></p>
-				<form method="post">
+				<form method="post" class="rt-template-form">
 					<?php wp_nonce_field( 'roxytable_use_template', 'roxytable_template_nonce' ); ?>
 					<button type="submit" name="roxytable_use_template" value="obsidian" class="roxytable-btn roxytable-btn-secondary" style="width: 100%;"><?php _e( 'Use Template', 'roxytable' ); ?></button>
 				</form>
@@ -49,7 +49,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<div style="padding: 20px;">
 				<h4 style="font-size: 1rem; font-weight: 600; margin: 0 0 4px 0; color: var(--text-main);"><?php _e( 'Emerald Grid', 'roxytable' ); ?></h4>
 				<p style="color: var(--text-muted); font-size: 0.825rem; margin: 0 0 16px 0;"><?php _e( 'Fresh corporate look featuring emerald accents, zebra striping, and clean typography layouts.', 'roxytable' ); ?></p>
-				<form method="post">
+				<form method="post" class="rt-template-form">
 					<?php wp_nonce_field( 'roxytable_use_template', 'roxytable_template_nonce' ); ?>
 					<button type="submit" name="roxytable_use_template" value="emerald" class="roxytable-btn roxytable-btn-secondary" style="width: 100%;"><?php _e( 'Use Template', 'roxytable' ); ?></button>
 				</form>

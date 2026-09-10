@@ -193,12 +193,20 @@ class Import_Handler {
 				$headers[] = ( $val !== null ) ? sanitize_text_field( (string) $val ) : '';
 			}
 
+			$merged_map = self::get_merged_placeholders( $sheet );
+
 			// Read preview rows (rows 2 to 11)
 			for ( $row = 2; $row <= $preview_rows_count; $row++ ) {
 				$row_cells = [];
 				for ( $col = 1; $col <= $highest_col_index; $col++ ) {
-					$val = $sheet->getCellByColumnAndRow( $col, $row )->getValue();
-					$row_cells[] = ( $val !== null ) ? sanitize_text_field( (string) $val ) : '';
+					$key = $row . '_' . $col;
+					if ( isset( $merged_map[ $key ] ) ) {
+						$val = $merged_map[ $key ];
+					} else {
+						$raw = $sheet->getCellByColumnAndRow( $col, $row )->getValue();
+						$val = ( $raw !== null ) ? sanitize_text_field( (string) $raw ) : '';
+					}
+					$row_cells[] = $val;
 				}
 				$rows[] = $row_cells;
 			}
@@ -213,6 +221,69 @@ class Import_Handler {
 		} catch ( \Exception $e ) {
 			return sprintf( __( 'Error generating preview: %s', 'roxytable' ), $e->getMessage() );
 		}
+	}
+
+	/**
+	 * Build a map of merged cell placeholders for a worksheet.
+	 *
+	 * Conditional check: Verifies if the origin cell of a merged range is empty.
+	 * If the cell is confirmed to be empty, skips #rowspan# / #colspan# injection
+	 * entirely and leaves cell content as an empty string ("").
+	 *
+	 * @param \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet
+	 * @return array Map of [ "row_col" => "#rowspan#" | "#colspan#" | "" ]
+	 */
+	public static function get_merged_placeholders( $sheet ) : array {
+		$map = [];
+		try {
+			$merge_ranges = $sheet->getMergeCells();
+			if ( empty( $merge_ranges ) || ! is_array( $merge_ranges ) ) {
+				return $map;
+			}
+
+			foreach ( $merge_ranges as $range ) {
+				$parts = explode( ':', (string) $range );
+				if ( count( $parts ) !== 2 ) {
+					continue;
+				}
+
+				$start_col_str = preg_replace( '/[0-9]/', '', $parts[0] );
+				$start_row     = (int) preg_replace( '/[A-Z]/i', '', $parts[0] );
+				$end_col_str   = preg_replace( '/[0-9]/', '', $parts[1] );
+				$end_row       = (int) preg_replace( '/[A-Z]/i', '', $parts[1] );
+
+				$start_col = Coordinate::columnIndexFromString( $start_col_str );
+				$end_col   = Coordinate::columnIndexFromString( $end_col_str );
+
+				// Get origin cell value
+				$origin_val = $sheet->getCellByColumnAndRow( $start_col, $start_row )->getValue();
+				$is_empty   = ( $origin_val === null || '' === trim( (string) $origin_val ) );
+
+				for ( $r = $start_row; $r <= $end_row; $r++ ) {
+					for ( $c = $start_col; $c <= $end_col; $c++ ) {
+						if ( $r === $start_row && $c === $start_col ) {
+							continue; // Origin cell retains its actual value
+						}
+
+						$key = $r . '_' . $c;
+						if ( $is_empty ) {
+							// CONDITIONAL CHECK: If origin cell is empty, skip #rowspan# injection entirely
+							$map[ $key ] = '';
+						} else {
+							if ( $r > $start_row ) {
+								$map[ $key ] = '#rowspan#';
+							} elseif ( $c > $start_col ) {
+								$map[ $key ] = '#colspan#';
+							}
+						}
+					}
+				}
+			}
+		} catch ( \Throwable $t ) {
+			// Ignore if range parsing fails
+		}
+
+		return $map;
 	}
 
 	/**
@@ -253,6 +324,7 @@ class Import_Handler {
 
 			$highest_row       = $sheet->getHighestRow();
 			$highest_col_index = Coordinate::columnIndexFromString( $sheet->getHighestColumn() );
+			$merged_map        = self::get_merged_placeholders( $sheet );
 
 			// ----- Read headers -----
 			$headers    = [];
@@ -276,8 +348,14 @@ class Import_Handler {
 			for ( $row = $start_row; $row <= $highest_row; $row++ ) {
 				$row_cells = [];
 				for ( $col = 1; $col <= $highest_col_index; $col++ ) {
-					$val         = $sheet->getCellByColumnAndRow( $col, $row )->getValue();
-					$row_cells[] = ( $val !== null ) ? sanitize_text_field( (string) $val ) : '';
+					$key = $row . '_' . $col;
+					if ( isset( $merged_map[ $key ] ) ) {
+						$val = $merged_map[ $key ];
+					} else {
+						$raw = $sheet->getCellByColumnAndRow( $col, $row )->getValue();
+						$val = ( $raw !== null ) ? sanitize_text_field( (string) $raw ) : '';
+					}
+					$row_cells[] = $val;
 				}
 				$rows[] = $row_cells;
 			}

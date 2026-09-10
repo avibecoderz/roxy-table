@@ -22,8 +22,8 @@ $current_page = min( $current_page, $total_pages );
 $rows = Table_Repository::get_rows( $table_id, $per_page, ( $current_page - 1 ) * $per_page );
 $preview_url = admin_url( 'admin.php?page=roxytable-tables&action=preview&id=' . $table_id . '&paged=' );
 $settings = json_decode( (string) ( $table['settings'] ?? '' ), true );
-$template = is_array( $settings ) && ! empty( $settings['template'] ) ? sanitize_html_class( $settings['template'] ) : '';
-$template_class = $template ? ' roxytable-template-' . $template : '';
+$stats = Table_Repository::get_column_statistics( $table_id );
+$sheets = isset( $settings['sheets'] ) && is_array( $settings['sheets'] ) ? $settings['sheets'] : [];
 
 ?>
 <div class="roxytable-preview-admin<?php echo esc_attr( $template_class ); ?>" style="max-width:1200px;margin:0 auto;">
@@ -39,15 +39,17 @@ $template_class = $template ? ' roxytable-template-' . $template : '';
         <?php endif; ?>
     </div>
 
-    <div class="roxytable-card" style="padding:12px 16px 16px;">
-        <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
-            <input id="roxytable-preview-search" type="search" placeholder="Search <?php echo esc_attr( $table['name'] ); ?>..." style="flex:1 1 320px;padding:10px 12px;border-radius:8px;border:1px solid var(--border-color);" />
-            <div id="roxytable-preview-filters" style="display:flex;gap:12px;flex-wrap:wrap;"></div>
-            <button class="roxytable-btn roxytable-btn-secondary" style="white-space:nowrap;"><?php _e( 'Export', 'roxytable' ); ?></button>
-        </div>
+    <div class="roxytable-card roxytable-embed"
+        data-table-id="<?php echo esc_attr( $table_id ); ?>"
+        data-total-rows="<?php echo esc_attr( $total_rows ); ?>"
+        data-nonce="<?php echo esc_attr( wp_create_nonce( 'roxytable_filter_nonce' ) ); ?>"
+        data-stats="<?php echo esc_attr( wp_json_encode( $stats ) ); ?>"
+        data-sheets="<?php echo esc_attr( wp_json_encode( $sheets ) ); ?>"
+        data-settings="<?php echo esc_attr( wp_json_encode( $settings ) ); ?>"
+        style="padding:12px 16px 16px;">
 
         <div style="overflow-x:auto;">
-            <table id="roxytable-preview-table" class="roxytable-preview-table" style="width:100%;border-collapse:collapse;">
+            <table id="roxytable-preview-table" class="roxytable-preview-table roxytable-table" style="width:100%;border-collapse:collapse;">
                 <thead>
                     <tr>
                         <?php foreach ( $columns as $col ) : ?>
