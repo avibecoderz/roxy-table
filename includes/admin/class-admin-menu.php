@@ -985,9 +985,6 @@ class Admin_Menu {
 			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'roxytable' ) ] );
 		}
 
-		if ( isset( $_POST['avatar_url'] ) ) {
-			update_option( 'roxytable_dev_avatar', esc_url_raw( wp_unslash( $_POST['avatar_url'] ) ) );
-		}
 		if ( isset( $_POST['name'] ) ) {
 			update_option( 'roxytable_dev_name', sanitize_text_field( wp_unslash( $_POST['name'] ) ) );
 		}
@@ -1000,7 +997,7 @@ class Admin_Menu {
 
 		wp_send_json_success( [
 			'message'    => __( 'Profile updated successfully!', 'roxytable' ),
-			'avatar_url' => get_option( 'roxytable_dev_avatar' ),
+			'avatar_url' => ROXYTABLE_URL . 'assets/images/abdulpassport.jpeg',
 			'name'       => get_option( 'roxytable_dev_name', 'Abdulrahman Sulaiman' ),
 			'title'      => get_option( 'roxytable_dev_title', 'WordPress Developer with 4+ years working Experience' ),
 			'location'   => get_option( 'roxytable_dev_location', 'Live in Nigeria' ),

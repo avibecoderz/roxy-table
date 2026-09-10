@@ -1086,78 +1086,7 @@ function initAjaxForms() {
 		} );
 	}
 
-	// 8. Developer Profile Photo Uploader (#rt-edit-dev-profile-btn, #rt-change-photo-btn)
-	const triggerBtns = [
-		document.getElementById( 'rt-edit-dev-profile-btn' ),
-		document.getElementById( 'rt-change-photo-btn' )
-	].filter( Boolean );
-
-	if ( triggerBtns.length > 0 ) {
-		let mediaFrame = null;
-
-		triggerBtns.forEach( ( btn ) => {
-			btn.addEventListener( 'click', ( e ) => {
-				e.preventDefault();
-
-				if ( typeof wp === 'undefined' || ! wp.media ) {
-					showToast( 'WordPress Media Library is not available.', 'error' );
-					return;
-				}
-
-				if ( mediaFrame ) {
-					mediaFrame.open();
-					return;
-				}
-
-				mediaFrame = wp.media({
-					title: 'Select Developer Profile Image',
-					button: { text: 'Use as Profile Image' },
-					multiple: false
-				});
-
-				mediaFrame.on( 'select', async () => {
-					const selection = mediaFrame.state().get('selection');
-					const attachment = selection ? selection.first().toJSON() : null;
-
-					if ( attachment && attachment.url ) {
-						const newAvatarUrl = attachment.url;
-
-						// Update avatar image in DOM immediately
-						const avatarImg = document.getElementById( 'rt-dev-avatar-img' );
-						if ( avatarImg ) {
-							avatarImg.src = newAvatarUrl;
-						}
-
-						// Persist choice via AJAX
-						try {
-							const formData = new FormData();
-							formData.append( 'action', 'roxytable_save_profile' );
-							formData.append( 'nonce', ajaxData.nonces.save_profile );
-							formData.append( 'avatar_url', newAvatarUrl );
-
-							const res = await fetch( ajaxData.ajax_url, {
-								method: 'POST',
-								body: formData
-							} );
-							const json = await res.json();
-
-							if ( json.success ) {
-								showToast( json.data?.message || 'Profile photo updated successfully!', 'success' );
-							} else {
-								showToast( json.data?.message || 'Failed to update profile photo.', 'error' );
-							}
-						} catch ( err ) {
-							showToast( 'An error occurred while saving profile photo.', 'error' );
-						}
-					}
-				});
-
-				mediaFrame.open();
-			} );
-		} );
-	}
-
-	// 9. Table Image Thumbnail Picker (.rt-table-image-picker)
+	// 8. Table Image Thumbnail Picker (.rt-table-image-picker)
 	document.addEventListener( 'click', ( e ) => {
 		const picker = e.target.closest && e.target.closest( '.rt-table-image-picker' );
 		if ( ! picker ) return;

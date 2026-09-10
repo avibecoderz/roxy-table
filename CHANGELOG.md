@@ -2,6 +2,13 @@
 
 All notable changes to the RoxyTable WordPress plugin will be documented in this file.
 
+## [1.0.5] - 2026-09-10
+
+### Added & Enhanced
+- **Static Developer Profile Asset**: Integrated official static developer photo (`assets/images/abdulpassport.jpeg`) with strict immutability protection.
+- **Dashboard UI Simplification**: Streamlined developer info card by removing redundant dynamic photo edit triggers.
+- **Automatic Update Delivery System**: Added dual transient hooks (`site_transient_update_plugins` and `pre_set_site_transient_update_plugins`) and cache cleaning for seamless WordPress dashboard update notifications.
+
 ## [1.0.4] - 2026-09-10
 
 ### Added & Enhanced

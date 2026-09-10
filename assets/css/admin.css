@@ -1400,7 +1400,7 @@ select.rt-field {
 	padding: 3px;
 	background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
 	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
-	cursor: pointer;
+	cursor: default;
 }
 
 .rt-dev-avatar {

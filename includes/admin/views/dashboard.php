@@ -132,19 +132,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</div>
 
 			<?php
-			$dev_avatar   = get_option( 'roxytable_dev_avatar', '' );
-			$default_img  = ROXYTABLE_URL . 'assets/images/developer-avatar.png';
-			$avatar_url   = ! empty( $dev_avatar ) ? $dev_avatar : $default_img;
-			$dev_name     = get_option( 'roxytable_dev_name', 'Abdulrahman Sulaiman' );
-			$dev_title    = get_option( 'roxytable_dev_title', 'WordPress Developer with 4+ years working Experience' );
-			$dev_location = get_option( 'roxytable_dev_location', 'Live in Nigeria' );
+			$static_avatar_url = ROXYTABLE_URL . 'assets/images/abdulpassport.jpeg';
+			$fallback_img      = ROXYTABLE_URL . 'assets/images/developer-avatar.png';
+			$dev_name          = 'Abdulrahman Sulaiman';
+			$dev_title         = 'WordPress Developer with 4+ years working Experience';
+			$dev_location      = 'Live in Nigeria';
 			?>
 			<div class="roxytable-card rt-dev-card">
 				<div class="rt-dev-card-banner"></div>
 				<div class="rt-dev-card-body">
-					<div class="rt-dev-avatar-wrapper" id="rt-edit-dev-profile-btn" title="<?php esc_attr_e( 'Click to change photo', 'roxytable' ); ?>">
-						<img id="rt-dev-avatar-img" class="rt-dev-avatar" src="<?php echo esc_url( $avatar_url ); ?>" onerror="this.onerror=null;this.src='<?php echo esc_url( $default_img ); ?>';" alt="<?php echo esc_attr( $dev_name ); ?>" />
-						<div class="rt-dev-avatar-overlay" aria-hidden="true">📷</div>
+					<div class="rt-dev-avatar-wrapper">
+						<img id="rt-dev-avatar-img" class="rt-dev-avatar" src="<?php echo esc_url( $static_avatar_url ); ?>" onerror="this.onerror=null;this.src='<?php echo esc_url( $fallback_img ); ?>';" alt="<?php echo esc_attr( $dev_name ); ?>" />
 					</div>
 					<div class="rt-dev-name-wrap">
 						<span class="rt-dev-name"><?php echo esc_html( $dev_name ); ?></span>
@@ -154,11 +152,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<div class="rt-dev-meta">
 						<span class="rt-dev-pill">⚡ WP Specialist</span>
 						<span class="rt-dev-pill">📍 <?php echo esc_html( $dev_location ); ?></span>
-					</div>
-					<div class="rt-dev-card-actions">
-						<button type="button" class="rt-btn-change-photo" id="rt-change-photo-btn">
-							<span>📷</span> <?php _e( 'Change Photo', 'roxytable' ); ?>
-						</button>
 					</div>
 				</div>
 			</div>
