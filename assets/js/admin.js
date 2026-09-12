@@ -746,12 +746,18 @@ function initAjaxForms() {
 					method: 'POST',
 					body: formData
 				} );
-				const json = await res.json();
+				let json = null;
+				try {
+					const raw = await res.text();
+					json = JSON.parse( raw );
+				} catch ( parseErr ) {
+					console.warn( '[RoxyTable] Non-JSON response received during save table:', parseErr );
+				}
 
-				if ( json.success ) {
+				if ( res.ok && json && json.success ) {
 					showToast( json.data?.message || ajaxData.i18n?.saved || 'Saved successfully!', 'success' );
 				} else {
-					showToast( json.data?.message || ajaxData.i18n?.error || 'An error occurred.', 'error' );
+					showToast( json?.data?.message || ajaxData.i18n?.error || 'An error occurred.', 'error' );
 				}
 			} catch ( err ) {
 				showToast( ajaxData.i18n?.error || 'An error occurred.', 'error' );
@@ -763,6 +769,61 @@ function initAjaxForms() {
 				}
 			}
 		} );
+	}
+
+	// 1b. Edit Action click handler on tables list & Options section toggle on edit screen
+	document.addEventListener( 'click', ( e ) => {
+		const editBtn = e.target.closest && e.target.closest( '.rt-action-edit' );
+		if ( ! editBtn ) return;
+
+		const tableId = editBtn.dataset.tableId;
+		if ( tableId ) {
+			sessionStorage.setItem( `roxytable_options_visible_${tableId}`, '1' );
+			localStorage.setItem( 'roxytable_last_edited_table', tableId );
+		}
+	} );
+
+	const optionsSection = document.getElementById( 'rt-table-options-section' );
+	const toggleOptionsBtn = document.getElementById( 'rt-toggle-options-btn' );
+	const toggleOptionsText = document.getElementById( 'rt-toggle-options-text' );
+
+	if ( optionsSection && toggleOptionsBtn ) {
+		const activeTableId = optionsSection.dataset.tableId;
+		const storageKey = `roxytable_options_visible_${activeTableId}`;
+
+		function applyOptionsVisibility( isVisible ) {
+			if ( isVisible ) {
+				optionsSection.classList.remove( 'is-hidden' );
+				optionsSection.style.display = 'flex';
+				toggleOptionsBtn.setAttribute( 'aria-expanded', 'true' );
+				if ( toggleOptionsText ) toggleOptionsText.textContent = 'Hide Options';
+			} else {
+				optionsSection.classList.add( 'is-hidden' );
+				optionsSection.style.display = 'none';
+				toggleOptionsBtn.setAttribute( 'aria-expanded', 'false' );
+				if ( toggleOptionsText ) toggleOptionsText.textContent = 'Show Options';
+			}
+		}
+
+		// Initial state: default to visible immediately upon triggering edit action
+		const storedVal = sessionStorage.getItem( storageKey );
+		let isOptionsVisible = storedVal !== null ? storedVal === '1' : true;
+		applyOptionsVisibility( isOptionsVisible );
+
+		toggleOptionsBtn.addEventListener( 'click', ( e ) => {
+			e.preventDefault();
+			isOptionsVisible = ! isOptionsVisible;
+			sessionStorage.setItem( storageKey, isOptionsVisible ? '1' : '0' );
+			applyOptionsVisibility( isOptionsVisible );
+		} );
+
+		// Smooth scroll if navigated with hash
+		if ( window.location.hash === '#rt-table-options-section' ) {
+			applyOptionsVisibility( true );
+			setTimeout( () => {
+				optionsSection.scrollIntoView( { behavior: 'smooth', block: 'nearest' } );
+			}, 150 );
+		}
 	}
 
 	// 2. Table Data Edit Form (#rt-edit-table-data-form)

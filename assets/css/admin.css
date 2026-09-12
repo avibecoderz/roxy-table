@@ -1692,4 +1692,69 @@ select.rt-field {
 	color: #065f46;
 }
 
+/* =========================================================
+   Table Options & Features Panel (Edit Screen)
+   ========================================================= */
+
+.rt-options-panel {
+	border-top: 1px solid var(--border-color);
+	padding-top: 22px;
+	margin-top: 6px;
+}
+
+.rt-options-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 18px;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
+.rt-options-toggle-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 14px;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	border-radius: 6px;
+	border: 1px solid var(--border-color);
+	background: #ffffff;
+	color: var(--text-main);
+	cursor: pointer;
+	transition: all 0.2s ease;
+	user-select: none;
+}
+
+.rt-options-toggle-btn:hover {
+	background: #f8fafc;
+	border-color: #cbd5e1;
+	color: var(--primary);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.rt-options-toggle-btn .rt-chevron {
+	width: 14px;
+	height: 14px;
+	transition: transform 0.2s ease;
+	flex-shrink: 0;
+}
+
+.rt-options-toggle-btn[aria-expanded="false"] .rt-chevron {
+	transform: rotate(-90deg);
+}
+
+.rt-options-container {
+	display: flex;
+	flex-direction: column;
+	gap: 22px;
+	transition: all 0.3s ease;
+}
+
+.rt-options-container.is-hidden {
+	display: none !important;
+}
+
+
 

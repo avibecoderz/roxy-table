@@ -156,7 +156,7 @@ class Admin_Menu {
 
 		// Handle Save Table edits (from tables edit form)
 		if ( isset( $_POST['roxytable_save_table'] ) ) {
-			if ( ! isset( $_POST['roxytable_save_table_nonce'] ) || ! wp_verify_nonce( sanitize_key( $_POST['roxytable_save_table_nonce'] ), 'roxytable_save_table' ) ) {
+			if ( ! isset( $_POST['roxytable_save_table_nonce'] ) || ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['roxytable_save_table_nonce'] ) ), 'roxytable_save_table' ) ) {
 				wp_die( __( 'Security check failed.', 'roxytable' ) );
 			}
 
@@ -181,11 +181,35 @@ class Admin_Menu {
 			}
 
 			$result = \RoxyTable\Includes\Admin\Table_Repository::update_table_meta( $table_id, $meta );
+
+			$settings_partial = [];
 			$template = isset( $_POST['rt_table_template'] ) ? sanitize_key( wp_unslash( $_POST['rt_table_template'] ) ) : '';
 			$allowed_templates = [ '', 'indigo', 'obsidian', 'emerald' ];
 			if ( in_array( $template, $allowed_templates, true ) ) {
-				\RoxyTable\Includes\Admin\Table_Repository::update_table_settings( $table_id, [ 'template' => $template ] );
+				$settings_partial['template'] = $template;
 			}
+
+			if ( isset( $_POST['rt_has_options'] ) ) {
+				$settings_partial['search']          = ! empty( $_POST['rt_feat_search'] );
+				$settings_partial['sheet_filtering'] = ! empty( $_POST['rt_feat_sheet_filter'] );
+				$settings_partial['table_filtering'] = ! empty( $_POST['rt_feat_table_filter'] );
+				$settings_partial['sort']            = ! empty( $_POST['rt_feat_sort'] );
+				$settings_partial['pagination']      = ! empty( $_POST['rt_feat_pagination'] );
+				$settings_partial['visibility']      = ! empty( $_POST['rt_feat_visibility'] );
+				$settings_partial['export']          = ! empty( $_POST['rt_feat_export'] );
+
+				$settings_partial['parse_options'] = [
+					'first_row_headers' => ! empty( $_POST['rt_first_row_headers'] ),
+					'auto_detect_types' => ! empty( $_POST['rt_auto_detect_types'] ),
+					'remove_empty_rows' => ! empty( $_POST['rt_remove_empty_rows'] ),
+					'remove_empty_cols' => ! empty( $_POST['rt_remove_empty_cols'] ),
+				];
+			}
+
+			if ( ! empty( $settings_partial ) ) {
+				\RoxyTable\Includes\Admin\Table_Repository::update_table_settings( $table_id, $settings_partial );
+			}
+
 			wp_safe_redirect( admin_url( 'admin.php?page=roxytable-tables' ) );
 			exit;
 		}
@@ -829,6 +853,16 @@ class Admin_Menu {
 		] );
 
 		$nonce = isset( $_REQUEST['nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['nonce'] ) ) : '';
+		if ( empty( $nonce ) && isset( $_REQUEST['roxytable_save_table_nonce'] ) ) {
+			$nonce = sanitize_text_field( wp_unslash( $_REQUEST['roxytable_save_table_nonce'] ) );
+		}
+		if ( empty( $nonce ) && isset( $_POST['nonce'] ) ) {
+			$nonce = sanitize_text_field( wp_unslash( $_POST['nonce'] ) );
+		}
+		if ( empty( $nonce ) && isset( $_POST['roxytable_save_table_nonce'] ) ) {
+			$nonce = sanitize_text_field( wp_unslash( $_POST['roxytable_save_table_nonce'] ) );
+		}
+
 		if ( empty( $nonce ) || ! wp_verify_nonce( $nonce, 'roxytable_save_table' ) ) {
 			Logger::error( 'Save table metadata security check failed: Invalid nonce.' );
 			wp_send_json_error( [
@@ -895,13 +929,36 @@ class Admin_Menu {
 			return;
 		}
 
+		$settings_partial = [];
 		$raw_template = $_POST['rt_table_template'] ?? ( $_REQUEST['rt_table_template'] ?? null );
 		if ( null !== $raw_template ) {
 			$template = sanitize_key( wp_unslash( $raw_template ) );
 			$allowed_templates = [ '', 'indigo', 'obsidian', 'emerald' ];
 			if ( in_array( $template, $allowed_templates, true ) ) {
-				Table_Repository::update_table_settings( $table_id, [ 'template' => $template ] );
+				$settings_partial['template'] = $template;
 			}
+		}
+
+		if ( isset( $_POST['rt_has_options'] ) || isset( $_REQUEST['rt_has_options'] ) ) {
+			$source = ! empty( $_POST ) ? $_POST : $_REQUEST;
+			$settings_partial['search']          = ! empty( $source['rt_feat_search'] );
+			$settings_partial['sheet_filtering'] = ! empty( $source['rt_feat_sheet_filter'] );
+			$settings_partial['table_filtering'] = ! empty( $source['rt_feat_table_filter'] );
+			$settings_partial['sort']            = ! empty( $source['rt_feat_sort'] );
+			$settings_partial['pagination']      = ! empty( $source['rt_feat_pagination'] );
+			$settings_partial['visibility']      = ! empty( $source['rt_feat_visibility'] );
+			$settings_partial['export']          = ! empty( $source['rt_feat_export'] );
+
+			$settings_partial['parse_options'] = [
+				'first_row_headers' => ! empty( $source['rt_first_row_headers'] ),
+				'auto_detect_types' => ! empty( $source['rt_auto_detect_types'] ),
+				'remove_empty_rows' => ! empty( $source['rt_remove_empty_rows'] ),
+				'remove_empty_cols' => ! empty( $source['rt_remove_empty_cols'] ),
+			];
+		}
+
+		if ( ! empty( $settings_partial ) ) {
+			Table_Repository::update_table_settings( $table_id, $settings_partial );
 		}
 
 		$updated_table = Table_Repository::get_table( $table_id );

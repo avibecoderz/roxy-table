@@ -6,8 +6,17 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+if ( ! current_user_can( 'manage_options' ) ) {
+    wp_die( esc_html__( 'You do not have permission to access this page.', 'roxytable' ) );
+}
+
 $table_id = isset( $_GET['id'] ) ? absint( wp_unslash( $_GET['id'] ) ) : 0;
-$table = $table_id ? Table_Repository::get_table( $table_id ) : null;
+if ( $table_id < 1 ) {
+    wp_safe_redirect( admin_url( 'admin.php?page=roxytable-tables' ) );
+    exit;
+}
+
+$table = Table_Repository::get_table( $table_id );
 if ( ! $table ) {
     wp_safe_redirect( admin_url( 'admin.php?page=roxytable-tables' ) );
     exit;
@@ -15,8 +24,27 @@ if ( ! $table ) {
 
 $columns = Table_Repository::get_columns( $table_id );
 $rows = Table_Repository::get_rows( $table_id, max( 1, (int) ( $table['total_rows'] ?? 1 ) ), 0 );
-$table_settings = json_decode( (string) ( $table['settings'] ?? '' ), true );
-$current_template = is_array( $table_settings ) && ! empty( $table_settings['template'] ) ? $table_settings['template'] : '';
+$table_settings = is_array( $table['settings'] ?? null )
+    ? $table['settings']
+    : ( json_decode( (string) ( $table['settings'] ?? '' ), true ) ?: [] );
+$current_template = ! empty( $table_settings['template'] ) ? $table_settings['template'] : '';
+
+$parse_opts_saved = isset( $table_settings['parse_options'] ) && is_array( $table_settings['parse_options'] )
+    ? $table_settings['parse_options']
+    : [];
+
+$opt_first_row   = isset( $parse_opts_saved['first_row_headers'] ) ? (bool) $parse_opts_saved['first_row_headers'] : ( isset( $table_settings['first_row_headers'] ) ? (bool) $table_settings['first_row_headers'] : true );
+$opt_auto_detect = isset( $parse_opts_saved['auto_detect_types'] ) ? (bool) $parse_opts_saved['auto_detect_types'] : ( isset( $table_settings['auto_detect_types'] ) ? (bool) $table_settings['auto_detect_types'] : true );
+$opt_remove_rows = isset( $parse_opts_saved['remove_empty_rows'] ) ? (bool) $parse_opts_saved['remove_empty_rows'] : ( isset( $table_settings['remove_empty_rows'] ) ? (bool) $table_settings['remove_empty_rows'] : true );
+$opt_remove_cols = isset( $parse_opts_saved['remove_empty_cols'] ) ? (bool) $parse_opts_saved['remove_empty_cols'] : ( isset( $table_settings['remove_empty_cols'] ) ? (bool) $table_settings['remove_empty_cols'] : true );
+
+$feat_search     = isset( $table_settings['search'] ) ? (bool) $table_settings['search'] : true;
+$feat_sheet_filt = isset( $table_settings['sheet_filtering'] ) ? (bool) $table_settings['sheet_filtering'] : true;
+$feat_table_filt = isset( $table_settings['table_filtering'] ) ? (bool) $table_settings['table_filtering'] : true;
+$feat_sort       = isset( $table_settings['sort'] ) ? (bool) $table_settings['sort'] : true;
+$feat_pagination = isset( $table_settings['pagination'] ) ? (bool) $table_settings['pagination'] : true;
+$feat_visibility = isset( $table_settings['visibility'] ) ? (bool) $table_settings['visibility'] : true;
+$feat_export     = isset( $table_settings['export'] ) ? (bool) $table_settings['export'] : false;
 ?>
 <div class="roxytable-edit-container" style="max-width: 880px; margin: 0 auto;">
     <div style="margin-bottom:24px;">
@@ -31,6 +59,7 @@ $current_template = is_array( $table_settings ) && ! empty( $table_settings['tem
             <?php wp_nonce_field( 'roxytable_save_table', 'roxytable_save_table_nonce' ); ?>
             <input type="hidden" name="roxytable_save_table" value="1" />
             <input type="hidden" name="rt_table_id" value="<?php echo intval( $table_id ); ?>" />
+            <input type="hidden" name="rt_has_options" value="1" />
 
             <div style="display:flex;flex-direction:column;gap:18px;">
                 <div>
@@ -66,7 +95,104 @@ $current_template = is_array( $table_settings ) && ! empty( $table_settings['tem
                     </select>
                 </div>
 
-                <div style="display:flex;gap:12px;">
+                <!-- ── Table Options & Features Section ── -->
+                <div class="rt-options-panel">
+                    <div class="rt-options-header">
+                        <div>
+                            <h4 style="margin:0; font-size:1.05rem; font-weight:700; color:var(--text-main);"><?php _e( 'Table Options & Features', 'roxytable' ); ?></h4>
+                            <p style="margin:3px 0 0; font-size:0.8125rem; color:var(--text-muted);"><?php _e( 'Configure parsing rules and interactive frontend features for this table.', 'roxytable' ); ?></p>
+                        </div>
+                        <button type="button" id="rt-toggle-options-btn" class="rt-options-toggle-btn" aria-expanded="true" aria-controls="rt-table-options-section">
+                            <svg class="rt-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                            </svg>
+                            <span id="rt-toggle-options-text"><?php _e( 'Hide Options', 'roxytable' ); ?></span>
+                        </button>
+                    </div>
+
+                    <div id="rt-table-options-section" class="rt-options-container" data-table-id="<?php echo intval( $table_id ); ?>">
+                        <!-- ── 2. Parse Options ── -->
+                        <div class="rt-options-block">
+                            <h5 class="rt-section-heading"><?php _e( '2. Parse Options', 'roxytable' ); ?></h5>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px 28px;">
+                                <label class="rt-checkbox-label">
+                                    <input type="checkbox" name="rt_first_row_headers" value="1" <?php checked( $opt_first_row, true ); ?> />
+                                    <span><?php _e( 'First row contains headers', 'roxytable' ); ?></span>
+                                </label>
+                                <label class="rt-checkbox-label">
+                                    <input type="checkbox" name="rt_auto_detect_types" value="1" <?php checked( $opt_auto_detect, true ); ?> />
+                                    <span><?php _e( 'Auto-detect column types', 'roxytable' ); ?></span>
+                                </label>
+                                <label class="rt-checkbox-label">
+                                    <input type="checkbox" name="rt_remove_empty_rows" value="1" <?php checked( $opt_remove_rows, true ); ?> />
+                                    <span><?php _e( 'Remove empty rows', 'roxytable' ); ?></span>
+                                </label>
+                                <label class="rt-checkbox-label">
+                                    <input type="checkbox" name="rt_remove_empty_cols" value="1" <?php checked( $opt_remove_cols, true ); ?> />
+                                    <span><?php _e( 'Remove empty columns', 'roxytable' ); ?></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- ── 3. Frontend Features ── -->
+                        <div class="rt-options-block">
+                            <h5 class="rt-section-heading"><?php _e( '3. Frontend Features', 'roxytable' ); ?></h5>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px 28px;">
+                                <label class="rt-toggle-label">
+                                    <span class="rt-toggle-switch">
+                                        <input type="checkbox" name="rt_feat_search" value="1" <?php checked( $feat_search, true ); ?> />
+                                        <span class="rt-toggle-slider"></span>
+                                    </span>
+                                    <span class="rt-toggle-text"><?php _e( 'Enable search', 'roxytable' ); ?></span>
+                                </label>
+                                <label class="rt-toggle-label">
+                                    <span class="rt-toggle-switch">
+                                        <input type="checkbox" name="rt_feat_sheet_filter" value="1" <?php checked( $feat_sheet_filt, true ); ?> />
+                                        <span class="rt-toggle-slider"></span>
+                                    </span>
+                                    <span class="rt-toggle-text"><?php _e( 'Sheet-based filtering', 'roxytable' ); ?></span>
+                                </label>
+                                <label class="rt-toggle-label">
+                                    <span class="rt-toggle-switch">
+                                        <input type="checkbox" name="rt_feat_table_filter" value="1" <?php checked( $feat_table_filt, true ); ?> />
+                                        <span class="rt-toggle-slider"></span>
+                                    </span>
+                                    <span class="rt-toggle-text"><?php _e( 'Table-based filtering', 'roxytable' ); ?></span>
+                                </label>
+                                <label class="rt-toggle-label">
+                                    <span class="rt-toggle-switch">
+                                        <input type="checkbox" name="rt_feat_sort" value="1" <?php checked( $feat_sort, true ); ?> />
+                                        <span class="rt-toggle-slider"></span>
+                                    </span>
+                                    <span class="rt-toggle-text"><?php _e( 'Enable sort', 'roxytable' ); ?></span>
+                                </label>
+                                <label class="rt-toggle-label">
+                                    <span class="rt-toggle-switch">
+                                        <input type="checkbox" name="rt_feat_pagination" value="1" <?php checked( $feat_pagination, true ); ?> />
+                                        <span class="rt-toggle-slider"></span>
+                                    </span>
+                                    <span class="rt-toggle-text"><?php _e( 'Enable pagination', 'roxytable' ); ?></span>
+                                </label>
+                                <label class="rt-toggle-label">
+                                    <span class="rt-toggle-switch">
+                                        <input type="checkbox" name="rt_feat_visibility" value="1" <?php checked( $feat_visibility, true ); ?> />
+                                        <span class="rt-toggle-slider"></span>
+                                    </span>
+                                    <span class="rt-toggle-text"><?php _e( 'Column visibility toggle', 'roxytable' ); ?></span>
+                                </label>
+                                <label class="rt-toggle-label">
+                                    <span class="rt-toggle-switch">
+                                        <input type="checkbox" name="rt_feat_export" value="1" <?php checked( $feat_export, true ); ?> />
+                                        <span class="rt-toggle-slider"></span>
+                                    </span>
+                                    <span class="rt-toggle-text"><?php _e( 'Enable export (CSV)', 'roxytable' ); ?></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:12px;margin-top:6px;">
                     <button type="submit" class="roxytable-btn roxytable-btn-primary"><?php _e( 'Save Changes', 'roxytable' ); ?></button>
                     <a href="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-tables' ) ); ?>" class="roxytable-btn roxytable-btn-secondary"><?php _e( 'Cancel', 'roxytable' ); ?></a>
                 </div>
