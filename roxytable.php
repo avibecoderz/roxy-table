@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name:       RoxyTable
- * Plugin URI:        https://example.com/roxytable
+ * Plugin URI:        https://fokalbits.com/roxytable
  * Description:       Import Excel (.xlsx/.xls/.csv) files and display them as searchable, sortable, paginated HTML tables.
  * Version:           1.0.5
- * Author:            Oralbitstechnology
- * Author URI:        https://abdulrahmansulaiman.netlify.app
+ * Author:            Fokalbits	
+ * Author URI:        https://fokalbits.com
  * License:           GPL-2.0-or-later
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain:       roxytable

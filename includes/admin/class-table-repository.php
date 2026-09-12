@@ -408,7 +408,15 @@ class Table_Repository {
 			\ARRAY_A
 		);
 
-		return $row ?: null;
+		if ( ! $row ) {
+			return null;
+		}
+
+		$decoded = json_decode( (string) ( $row['settings'] ?? '' ), true );
+		$row['settings'] = is_array( $decoded ) ? $decoded : [];
+		$row['image']    = $row['settings']['image'] ?? '';
+
+		return $row;
 	}
 
 	/**
@@ -619,8 +627,9 @@ class Table_Repository {
 	public static function get_filtered_rows( int $table_id, array $args = [] ) : array {
 		global $wpdb;
 
-		$limit    = max( 1, intval( $args['limit'] ?? 25 ) );
-		$offset   = max( 0, intval( $args['offset'] ?? 0 ) );
+		$raw_limit = isset( $args['limit'] ) ? intval( $args['limit'] ) : -1;
+		$limit     = ( $raw_limit < 0 ) ? -1 : max( 1, $raw_limit );
+		$offset    = max( 0, intval( $args['offset'] ?? 0 ) );
 		$search   = isset( $args['search'] ) ? trim( (string) $args['search'] ) : '';
 		$sort_col = isset( $args['sort_col'] ) ? intval( $args['sort_col'] ) : -1;
 		$sort_dir = isset( $args['sort_dir'] ) && strtolower( (string) $args['sort_dir'] ) === 'desc' ? -1 : 1;
@@ -807,7 +816,7 @@ class Table_Repository {
 		}
 
 		$total_matched = count( $matched );
-		$paged_rows    = array_slice( $matched, $offset, $limit );
+		$paged_rows    = ( $limit < 0 ) ? ( $offset > 0 ? array_slice( $matched, $offset ) : $matched ) : array_slice( $matched, $offset, $limit );
 
 		return [
 			'rows'          => $paged_rows,

@@ -70,6 +70,19 @@ $stored       = \RoxyTable\Includes\Admin\Import_Handler::get_stored_data();
 				<?php wp_nonce_field( 'roxytable_file_upload', 'roxytable_upload_nonce' ); ?>
 				<input type="hidden" name="roxytable_upload_action" value="upload" />
 				
+				<!-- Dynamic AJAX Alert container -->
+				<div id="roxytable-upload-alert" style="display: none; margin: 20px 20px 0 20px; background-color: #fef2f2; border-left: 4px solid #ef4444; color: #991b1b; padding: 16px; border-radius: var(--radius-lg); font-size: 0.875rem; font-weight: 500;">
+					<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+						<div style="display: flex; align-items: flex-start; gap: 8px;">
+							<svg xmlns="http://www.w3.org/2000/svg" style="width: 20px; height: 20px; color: #ef4444; flex-shrink: 0; margin-top: 1px;" viewBox="0 0 20 20" fill="currentColor">
+								<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"/>
+							</svg>
+							<div id="roxytable-upload-alert-message" style="line-height: 1.5;"></div>
+						</div>
+						<button type="button" id="roxytable-upload-alert-close" style="background: none; border: none; color: #991b1b; cursor: pointer; font-size: 1.25rem; line-height: 1; padding: 0 4px;" aria-label="Dismiss">&times;</button>
+					</div>
+				</div>
+
 				<div class="roxytable-drag-drop-zone" id="roxytable-dropzone" style="padding: 60px 40px; border: 2px dashed var(--border-color); background-color: rgba(248, 250, 252, 0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 280px; cursor: pointer; text-align: center; border-radius: var(--radius-xl); transition: all 0.2s ease;">
 					<input type="file" name="roxytable_file" id="roxytable-file-input" accept=".xlsx,.xls,.csv" style="position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden;" />
 					

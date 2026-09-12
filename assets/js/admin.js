@@ -697,7 +697,7 @@ function initShortcodeCopy() {
    Native WordPress AJAX Handlers & Toast System
    ========================================================= */
 
-function showToast( message, type = 'success' ) {
+function showToast( message, type = 'success', duration = null ) {
 	let container = document.querySelector( '.rt-toast-container' );
 	if ( ! container ) {
 		container = document.createElement( 'div' );
@@ -707,14 +707,16 @@ function showToast( message, type = 'success' ) {
 	const toast = document.createElement( 'div' );
 	toast.className = `rt-toast rt-toast-${type}`;
 	const icon = type === 'success' ? '✓' : ( type === 'error' ? '✕' : 'ℹ' );
-	toast.innerHTML = `<span style="font-weight:700;">${icon}</span> <span>${escHtml( message )}</span>`;
+	toast.innerHTML = `<span style="font-weight:700; flex-shrink:0;">${icon}</span> <span style="line-height:1.4;">${escHtml( message )}</span>`;
 	container.appendChild( toast );
+
+	const displayTime = duration !== null ? duration : ( type === 'error' ? 6000 : 3500 );
 
 	setTimeout( () => {
 		toast.style.opacity = '0';
 		toast.style.transform = 'translateY(16px)';
 		setTimeout( () => toast.remove(), 300 );
-	}, 3500 );
+	}, displayTime );
 }
 
 function initAjaxForms() {
@@ -829,15 +831,22 @@ function initAjaxForms() {
 			const formData = new FormData();
 			formData.append( 'action', 'roxytable_delete_table' );
 			formData.append( 'table_id', tableId );
-			formData.append( 'nonce', nonce || '' );
+			formData.append( 'nonce', nonce || ajaxData.nonces.delete_table || '' );
 
 			const res = await fetch( ajaxData.ajax_url, {
 				method: 'POST',
 				body: formData
 			} );
-			const json = await res.json();
 
-			if ( json.success ) {
+			let json = null;
+			try {
+				const raw = await res.text();
+				json = JSON.parse( raw );
+			} catch ( parseErr ) {
+				console.warn( '[RoxyTable] Non-JSON response received during delete:', parseErr );
+			}
+
+			if ( res.ok && json && json.success ) {
 				showToast( json.data?.message || 'Table deleted successfully!', 'success' );
 				if ( row ) {
 					row.style.transition = 'all 0.3s ease';
@@ -846,7 +855,7 @@ function initAjaxForms() {
 					setTimeout( () => row.remove(), 300 );
 				}
 			} else {
-				showToast( json.data?.message || 'Failed to delete table.', 'error' );
+				showToast( json?.data?.message || 'Failed to delete table.', 'error' );
 				deleteLink.style.opacity = '1';
 				deleteLink.style.pointerEvents = 'auto';
 			}
@@ -988,19 +997,80 @@ function initAjaxForms() {
 		} );
 	} );
 
+	// Helper functions for import alert banner
+	const uploadAlertBox = document.getElementById( 'roxytable-upload-alert' );
+	const uploadAlertMsg = document.getElementById( 'roxytable-upload-alert-message' );
+	const uploadAlertClose = document.getElementById( 'roxytable-upload-alert-close' );
+
+	if ( uploadAlertClose ) {
+		uploadAlertClose.addEventListener( 'click', () => {
+			if ( uploadAlertBox ) uploadAlertBox.style.display = 'none';
+		} );
+	}
+
+	function showUploadAlert( message ) {
+		if ( uploadAlertBox && uploadAlertMsg ) {
+			uploadAlertMsg.innerHTML = message;
+			uploadAlertBox.style.display = 'block';
+			uploadAlertBox.scrollIntoView( { behavior: 'smooth', block: 'nearest' } );
+		}
+	}
+
+	function hideUploadAlert() {
+		if ( uploadAlertBox ) {
+			uploadAlertBox.style.display = 'none';
+		}
+	}
+
 	// 6. Import Step 1 Upload Form (#roxytable-upload-form)
 	const uploadForm = document.getElementById( 'roxytable-upload-form' );
 	if ( uploadForm ) {
 		uploadForm.addEventListener( 'submit', async ( e ) => {
 			e.preventDefault();
+			hideUploadAlert();
+
 			const submitBtn = document.getElementById( 'roxytable-upload-submit' );
 			const originalText = submitBtn ? submitBtn.textContent : '';
+
+			// 1. Client-side pre-validation: file selection
+			const fileInput = document.getElementById( 'roxytable-file-input' );
+			if ( ! fileInput || ! fileInput.files || fileInput.files.length === 0 ) {
+				const noFileMsg = ajaxData.i18n?.no_file_selected || 'Please select a spreadsheet file (.xlsx, .xls, or .csv) to upload.';
+				showToast( noFileMsg, 'error' );
+				showUploadAlert( `⚠️ <strong>${noFileMsg}</strong>` );
+				return;
+			}
+
+			const file = fileInput.files[0];
+
+			// 2. Client-side pre-validation: extension
+			const ext = file.name.split( '.' ).pop().toLowerCase();
+			const allowedExts = ajaxData.allowed_extensions || [ 'xlsx', 'xls', 'csv' ];
+			if ( ! allowedExts.includes( ext ) ) {
+				const extMsg = `Invalid file format "<strong>.${escHtml( ext )}</strong>". RoxyTable only supports <strong>.xlsx, .xls, and .csv</strong> files.`;
+				showToast( `Invalid file format ".${ext}". Please choose a .xlsx, .xls, or .csv file.`, 'error' );
+				showUploadAlert( `⚠️ ${extMsg}` );
+				return;
+			}
+
+			// 3. Client-side pre-validation: file size
+			if ( ajaxData.max_upload_size && file.size > ajaxData.max_upload_size ) {
+				const maxFormatted = ajaxData.max_upload_size_formatted || formatBytes( ajaxData.max_upload_size );
+				const sizeMsg = `File size (<strong>${formatBytes( file.size )}</strong>) exceeds the server maximum upload limit of <strong>${maxFormatted}</strong>. Please choose a smaller file.`;
+				showToast( `File size exceeds maximum upload limit of ${maxFormatted}.`, 'error' );
+				showUploadAlert( `⚠️ ${sizeMsg}` );
+				return;
+			}
 
 			if ( submitBtn ) {
 				submitBtn.disabled = true;
 				submitBtn.textContent = ajaxData.i18n?.uploading || 'Uploading file...';
 				submitBtn.style.opacity = '0.7';
 			}
+
+			console.groupCollapsed( `[RoxyTable] Uploading ${file.name} (${formatBytes( file.size )})` );
+			console.log( 'Endpoint:', ajaxData.ajax_url );
+			console.log( 'File details:', { name: file.name, size: file.size, type: file.type } );
 
 			try {
 				const formData = new FormData( uploadForm );
@@ -1011,15 +1081,62 @@ function initAjaxForms() {
 					method: 'POST',
 					body: formData
 				} );
-				const json = await res.json();
 
-				if ( json.success ) {
+				console.log( 'Response status:', res.status, res.statusText );
+
+				let rawText = '';
+				let json = null;
+
+				try {
+					rawText = await res.text();
+					json = JSON.parse( rawText );
+				} catch ( parseErr ) {
+					console.warn( '[RoxyTable] Non-JSON server response received:', rawText );
+				}
+
+				if ( res.ok && json && json.success ) {
+					console.log( '[RoxyTable] Upload succeeded:', json.data );
+					console.groupEnd();
 					showToast( json.data?.message || 'File uploaded successfully!', 'success' );
 					setTimeout( () => {
 						window.location.href = window.location.pathname + '?page=roxytable-import&step=2';
 					}, 400 );
 				} else {
-					showToast( json.data?.message || 'Upload failed.', 'error' );
+					let errorTitle = 'Upload Failed';
+					let errorDetail = '';
+
+					if ( json && json.data && json.data.message ) {
+						errorDetail = json.data.message;
+						if ( json.data.code ) {
+							errorTitle = `Upload Failed (${json.data.code})`;
+						}
+					} else if ( res.status === 403 ) {
+						errorTitle = 'Access Denied (403)';
+						errorDetail = ajaxData.i18n?.permission_error || 'You do not have permission to upload files, or your security session has expired. Please refresh the page and try again.';
+					} else if ( res.status === 413 ) {
+						errorTitle = 'File Too Large (413)';
+						errorDetail = `The server rejected the file because its size (${formatBytes( file.size )}) exceeds the server's post limit (${ajaxData.max_upload_size_formatted || ''}).`;
+					} else if ( res.status === 500 ) {
+						errorTitle = 'Server Error (500)';
+						errorDetail = 'The server encountered an internal error while processing the spreadsheet. Please verify PHP error logs or contact your server administrator.';
+					} else if ( res.status >= 502 && res.status <= 504 ) {
+						errorTitle = `Server Unavailable (${res.status})`;
+						errorDetail = 'The server or gateway is temporarily unable to complete your request. Please wait a moment and try again.';
+					} else if ( ! res.ok ) {
+						errorTitle = `HTTP Error ${res.status}`;
+						errorDetail = res.statusText || 'An unexpected server error occurred.';
+					} else if ( rawText && rawText.length < 200 && ! rawText.includes( '<' ) ) {
+						errorDetail = rawText;
+					} else {
+						errorDetail = ajaxData.i18n?.error || 'An unexpected error occurred while uploading. Please check the browser console for details.';
+					}
+
+					console.error( '[RoxyTable] Upload failure details:', { status: res.status, errorTitle, errorDetail, rawText } );
+					console.groupEnd();
+
+					showToast( errorDetail.replace( /<[^>]+>/g, '' ), 'error' );
+					showUploadAlert( `<strong>${errorTitle}:</strong> ${errorDetail}` );
+
 					if ( submitBtn ) {
 						submitBtn.disabled = false;
 						submitBtn.textContent = originalText;
@@ -1027,7 +1144,21 @@ function initAjaxForms() {
 					}
 				}
 			} catch ( err ) {
-				showToast( 'An error occurred while uploading.', 'error' );
+				console.error( '[RoxyTable] Network/runtime error during upload:', err );
+				console.groupEnd();
+
+				let networkMsg = '';
+				if ( ! navigator.onLine ) {
+					networkMsg = 'Network Offline: You appear to be disconnected from the internet. Please check your network and try again.';
+				} else if ( err.name === 'AbortError' ) {
+					networkMsg = 'Upload Timeout: The server took too long to respond. The file may be too large or the server is busy.';
+				} else {
+					networkMsg = `Network Error: ${err.message || 'Unable to connect to WordPress server.'}. Please verify your network connection.`;
+				}
+
+				showToast( networkMsg, 'error' );
+				showUploadAlert( `<strong>Connection Issue:</strong> ${networkMsg}` );
+
 				if ( submitBtn ) {
 					submitBtn.disabled = false;
 					submitBtn.textContent = originalText;
@@ -1051,6 +1182,8 @@ function initAjaxForms() {
 				submitBtn.style.opacity = '0.7';
 			}
 
+			console.groupCollapsed( '[RoxyTable] Confirming table import...' );
+
 			try {
 				const formData = new FormData( confirmImportForm );
 				formData.append( 'action', 'roxytable_confirm_import' );
@@ -1060,15 +1193,44 @@ function initAjaxForms() {
 					method: 'POST',
 					body: formData
 				} );
-				const json = await res.json();
 
-				if ( json.success && json.data?.redirect_url ) {
+				console.log( 'Confirm import response status:', res.status, res.statusText );
+
+				let rawText = '';
+				let json = null;
+
+				try {
+					rawText = await res.text();
+					json = JSON.parse( rawText );
+				} catch ( parseErr ) {
+					console.warn( '[RoxyTable] Non-JSON server response on confirm import:', rawText );
+				}
+
+				if ( res.ok && json && json.success && json.data?.redirect_url ) {
+					console.log( '[RoxyTable] Table import confirmed successfully:', json.data );
+					console.groupEnd();
 					showToast( json.data?.message || 'Table imported successfully!', 'success' );
 					setTimeout( () => {
 						window.location.href = json.data.redirect_url;
 					}, 400 );
 				} else {
-					showToast( json.data?.message || 'Failed to confirm import.', 'error' );
+					let errorDetail = 'Failed to confirm import.';
+
+					if ( json && json.data && json.data.message ) {
+						errorDetail = json.data.message;
+					} else if ( res.status === 403 ) {
+						errorDetail = ajaxData.i18n?.permission_error || 'Access Denied (403): You do not have permission to import tables, or your session has expired.';
+					} else if ( res.status === 500 ) {
+						errorDetail = 'Server Error (500): An error occurred while creating the table in the database.';
+					} else if ( ! res.ok ) {
+						errorDetail = `Server returned HTTP ${res.status}: ${res.statusText || 'Error'}.`;
+					}
+
+					console.error( '[RoxyTable] Import confirmation failed:', { status: res.status, errorDetail, rawText } );
+					console.groupEnd();
+
+					showToast( errorDetail.replace( /<[^>]+>/g, '' ), 'error' );
+
 					if ( submitBtn ) {
 						submitBtn.disabled = false;
 						submitBtn.textContent = originalText;
@@ -1076,7 +1238,15 @@ function initAjaxForms() {
 					}
 				}
 			} catch ( err ) {
-				showToast( 'An error occurred while saving table.', 'error' );
+				console.error( '[RoxyTable] Network/runtime error during confirm import:', err );
+				console.groupEnd();
+
+				const networkMsg = ( ! navigator.onLine )
+					? 'Network Offline: Please check your internet connection and try again.'
+					: `Network Error: ${err.message || 'Unable to connect to server.'}. Please try again.`;
+
+				showToast( networkMsg, 'error' );
+
 				if ( submitBtn ) {
 					submitBtn.disabled = false;
 					submitBtn.textContent = originalText;
@@ -1139,17 +1309,27 @@ function initAjaxForms() {
 					formData.append( 'nonce', ajaxData.nonces.save_table_image );
 					formData.append( 'table_id', tableId );
 					formData.append( 'image_url', imageUrl );
+					if ( attachment && attachment.id ) {
+						formData.append( 'attachment_id', attachment.id );
+					}
 
 					const res = await fetch( ajaxData.ajax_url, {
 						method: 'POST',
 						body: formData
 					} );
-					const json = await res.json();
 
-					if ( json.success ) {
+					let json = null;
+					try {
+						const raw = await res.text();
+						json = JSON.parse( raw );
+					} catch ( parseErr ) {
+						console.warn( '[RoxyTable] Non-JSON response saving table image:', parseErr );
+					}
+
+					if ( res.ok && json && json.success ) {
 						showToast( json.data?.message || 'Table thumbnail image updated!', 'success' );
 					} else {
-						showToast( json.data?.message || 'Failed to update table image.', 'error' );
+						showToast( json?.data?.message || 'Failed to update table image.', 'error' );
 					}
 				} catch ( err ) {
 					showToast( 'An error occurred while saving table image.', 'error' );

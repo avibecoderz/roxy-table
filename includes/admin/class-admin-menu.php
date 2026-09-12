@@ -1,6 +1,8 @@
 <?php
 namespace RoxyTable\Includes\Admin;
 
+use RoxyTable\Includes\Logger;
+
 /**
  * Register admin menu and load page assets.
  */
@@ -38,7 +40,8 @@ class Admin_Menu {
 	 * Process file upload requests before headers are sent.
 	 */
 	public function process_import_post() {
-		if ( ! is_admin() || ! current_user_can( 'manage_options' ) ) {
+		// Do not run during AJAX requests - AJAX actions are handled by dedicated wp_ajax_* endpoints
+		if ( wp_doing_ajax() || ! is_admin() || ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
 
@@ -84,7 +87,8 @@ class Admin_Menu {
 				wp_safe_redirect( admin_url( 'admin.php?page=roxytable-import&step=2' ) );
 				exit;
 			} else {
-				set_transient( 'roxytable_upload_error_' . get_current_user_id(), $upload_result, 30 );
+				$err_msg = is_wp_error( $upload_result ) ? $upload_result->get_error_message() : (string) $upload_result;
+				set_transient( 'roxytable_upload_error_' . get_current_user_id(), $err_msg, 30 );
 				wp_safe_redirect( admin_url( 'admin.php?page=roxytable-import&step=1' ) );
 				exit;
 			}
@@ -455,24 +459,33 @@ class Admin_Menu {
 		$admin_js = ROXYTABLE_PATH . 'assets/js/admin.js';
 		wp_enqueue_script( 'roxytable-admin-js', ROXYTABLE_URL . 'assets/js/admin.js', [], file_exists( $admin_js ) ? filemtime( $admin_js ) : ROXYTABLE_VERSION, true );
 		wp_localize_script( 'roxytable-admin-js', 'roxyAdminData', [
-			'ajax_url' => admin_url( 'admin-ajax.php' ),
+			'ajax_url'                  => admin_url( 'admin-ajax.php' ),
+			'max_upload_size'           => wp_max_upload_size(),
+			'max_upload_size_formatted' => size_format( wp_max_upload_size() ),
+			'allowed_extensions'        => [ 'xlsx', 'xls', 'csv' ],
 			'nonces'   => [
-				'save_data'      => wp_create_nonce( 'roxytable_save_data' ),
-				'save_table'     => wp_create_nonce( 'roxytable_save_table' ),
-				'bulk_tables'    => wp_create_nonce( 'roxytable_bulk_tables' ),
-				'use_template'   => wp_create_nonce( 'roxytable_use_template' ),
-				'upload_file'    => wp_create_nonce( 'roxytable_file_upload' ),
-				'confirm_import' => wp_create_nonce( 'roxytable_confirm_import' ),
+				'save_data'        => wp_create_nonce( 'roxytable_save_data' ),
+				'save_table'       => wp_create_nonce( 'roxytable_save_table' ),
+				'delete_table'     => wp_create_nonce( 'roxytable_delete_table' ),
+				'bulk_tables'      => wp_create_nonce( 'roxytable_bulk_tables' ),
+				'use_template'     => wp_create_nonce( 'roxytable_use_template' ),
+				'upload_file'      => wp_create_nonce( 'roxytable_file_upload' ),
+				'confirm_import'   => wp_create_nonce( 'roxytable_confirm_import' ),
 				'save_profile'     => wp_create_nonce( 'roxytable_save_profile' ),
 				'save_table_image' => wp_create_nonce( 'roxytable_save_table_image' ),
 			],
 			'i18n'     => [
-				'saving'       => __( 'Saving...', 'roxytable' ),
-				'saved'        => __( 'Saved successfully!', 'roxytable' ),
-				'deleting'     => __( 'Deleting...', 'roxytable' ),
-				'deleted'      => __( 'Deleted successfully!', 'roxytable' ),
-				'uploading'    => __( 'Uploading file...', 'roxytable' ),
-				'error'        => __( 'An error occurred. Please try again.', 'roxytable' ),
+				'saving'            => __( 'Saving...', 'roxytable' ),
+				'saved'             => __( 'Saved successfully!', 'roxytable' ),
+				'deleting'          => __( 'Deleting...', 'roxytable' ),
+				'deleted'           => __( 'Deleted successfully!', 'roxytable' ),
+				'uploading'         => __( 'Uploading file...', 'roxytable' ),
+				'error'             => __( 'An error occurred. Please try again.', 'roxytable' ),
+				'network_error'     => __( 'Network error: Unable to connect to server. Please check your internet connection.', 'roxytable' ),
+				'permission_error'  => __( 'Access Denied: You do not have permission to upload files or your session expired.', 'roxytable' ),
+				'file_too_large'    => sprintf( __( 'File size exceeds maximum upload limit of %s.', 'roxytable' ), size_format( wp_max_upload_size() ) ),
+				'invalid_file_type' => __( 'Invalid file format. Please select a valid .xlsx, .xls, or .csv file.', 'roxytable' ),
+				'no_file_selected'  => __( 'Please select a spreadsheet file to upload.', 'roxytable' ),
 			],
 		] );
 
@@ -732,19 +745,51 @@ class Admin_Menu {
 	 * AJAX endpoint: Save Table Data (column names & row cell values).
 	 */
 	public function ajax_save_data() {
-		check_ajax_referer( 'roxytable_save_data', 'nonce' );
+		Logger::info( 'AJAX save table data initiated.', [
+			'user_id' => get_current_user_id(),
+		] );
 
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'roxytable' ) ] );
+		$nonce = isset( $_REQUEST['nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['nonce'] ) ) : '';
+		if ( empty( $nonce ) || ! wp_verify_nonce( $nonce, 'roxytable_save_data' ) ) {
+			Logger::error( 'Save table data security check failed: Invalid nonce.' );
+			wp_send_json_error( [
+				'code'    => 'security_check_failed',
+				'message' => __( 'Security verification failed or session expired. Please refresh the page.', 'roxytable' ),
+			], 403 );
+			return;
 		}
 
-		$table_id = isset( $_POST['rt_data_table_id'] ) ? absint( $_POST['rt_data_table_id'] ) : 0;
+		if ( ! current_user_can( 'manage_options' ) ) {
+			Logger::error( 'Save table data failed: User lacks manage_options capability.' );
+			wp_send_json_error( [
+				'code'    => 'permission_denied',
+				'message' => __( 'Permission denied.', 'roxytable' ),
+			], 403 );
+			return;
+		}
+
+		$table_id = isset( $_POST['rt_data_table_id'] ) ? absint( $_POST['rt_data_table_id'] ) : ( isset( $_REQUEST['rt_data_table_id'] ) ? absint( $_REQUEST['rt_data_table_id'] ) : 0 );
 		if ( $table_id < 1 ) {
-			wp_send_json_error( [ 'message' => __( 'Invalid table ID.', 'roxytable' ) ] );
+			Logger::error( 'Save table data failed: Invalid table ID ' . $table_id );
+			wp_send_json_error( [
+				'code'    => 'invalid_table_id',
+				'message' => __( 'Invalid table ID.', 'roxytable' ),
+			], 400 );
+			return;
+		}
+
+		$table = Table_Repository::get_table( $table_id );
+		if ( ! $table ) {
+			Logger::error( 'Save table data failed: Table not found ' . $table_id );
+			wp_send_json_error( [
+				'code'    => 'table_not_found',
+				'message' => __( 'Table not found.', 'roxytable' ),
+			], 404 );
+			return;
 		}
 
 		$columns = Table_Repository::get_columns( $table_id );
-		$posted_names = isset( $_POST['rt_column_names'] ) ? (array) wp_unslash( $_POST['rt_column_names'] ) : [];
+		$posted_names = isset( $_POST['rt_column_names'] ) ? (array) wp_unslash( $_POST['rt_column_names'] ) : ( isset( $_REQUEST['rt_column_names'] ) ? (array) wp_unslash( $_REQUEST['rt_column_names'] ) : [] );
 		$columns_to_save = [];
 		foreach ( $columns as $column ) {
 			$column_id = (int) $column['id'];
@@ -760,138 +805,297 @@ class Admin_Menu {
 		}
 		Table_Repository::save_columns( $table_id, $columns_to_save );
 
-		$posted_rows = isset( $_POST['rt_rows'] ) ? (array) wp_unslash( $_POST['rt_rows'] ) : [];
+		$posted_rows = isset( $_POST['rt_rows'] ) ? (array) wp_unslash( $_POST['rt_rows'] ) : ( isset( $_REQUEST['rt_rows'] ) ? (array) wp_unslash( $_REQUEST['rt_rows'] ) : [] );
 		$written = Table_Repository::update_rows_data( $table_id, $posted_rows );
+
+		Logger::info( 'Table data saved successfully.', [
+			'table_id'     => $table_id,
+			'rows_written' => $written,
+		] );
 
 		wp_send_json_success( [
 			'message'  => sprintf( __( 'Saved %d rows successfully!', 'roxytable' ), $written ),
 			'table_id' => $table_id,
 		] );
+		return;
 	}
 
 	/**
 	 * AJAX endpoint: Save Table Metadata (Name, Slug, Description, Status, Template).
 	 */
 	public function ajax_save_table() {
-		check_ajax_referer( 'roxytable_save_table', 'nonce' );
+		Logger::info( 'AJAX save table metadata initiated.', [
+			'user_id' => get_current_user_id(),
+		] );
 
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'roxytable' ) ] );
+		$nonce = isset( $_REQUEST['nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['nonce'] ) ) : '';
+		if ( empty( $nonce ) || ! wp_verify_nonce( $nonce, 'roxytable_save_table' ) ) {
+			Logger::error( 'Save table metadata security check failed: Invalid nonce.' );
+			wp_send_json_error( [
+				'code'    => 'security_check_failed',
+				'message' => __( 'Security verification failed or session expired. Please refresh the page.', 'roxytable' ),
+			], 403 );
+			return;
 		}
 
-		$table_id = isset( $_POST['rt_table_id'] ) ? absint( $_POST['rt_table_id'] ) : 0;
+		if ( ! current_user_can( 'manage_options' ) ) {
+			Logger::error( 'Save table metadata failed: User lacks manage_options capability.' );
+			wp_send_json_error( [
+				'code'    => 'permission_denied',
+				'message' => __( 'Permission denied.', 'roxytable' ),
+			], 403 );
+			return;
+		}
+
+		$table_id = isset( $_POST['rt_table_id'] ) ? absint( $_POST['rt_table_id'] ) : ( isset( $_REQUEST['rt_table_id'] ) ? absint( $_REQUEST['rt_table_id'] ) : 0 );
 		if ( $table_id < 1 ) {
-			wp_send_json_error( [ 'message' => __( 'Invalid table ID.', 'roxytable' ) ] );
+			Logger::error( 'Save table metadata failed: Invalid table ID ' . $table_id );
+			wp_send_json_error( [
+				'code'    => 'invalid_table_id',
+				'message' => __( 'Invalid table ID.', 'roxytable' ),
+			], 400 );
+			return;
+		}
+
+		$table = Table_Repository::get_table( $table_id );
+		if ( ! $table ) {
+			Logger::error( 'Save table metadata failed: Table not found ' . $table_id );
+			wp_send_json_error( [
+				'code'    => 'table_not_found',
+				'message' => __( 'Table not found.', 'roxytable' ),
+			], 404 );
+			return;
 		}
 
 		$meta = [];
-		if ( isset( $_POST['rt_table_name'] ) ) {
-			$meta['name'] = sanitize_text_field( wp_unslash( $_POST['rt_table_name'] ) );
+		if ( isset( $_POST['rt_table_name'] ) || isset( $_REQUEST['rt_table_name'] ) ) {
+			$raw_name = $_POST['rt_table_name'] ?? $_REQUEST['rt_table_name'];
+			$meta['name'] = sanitize_text_field( wp_unslash( $raw_name ) );
 		}
-		if ( isset( $_POST['rt_table_slug'] ) ) {
-			$meta['slug'] = sanitize_title( wp_unslash( $_POST['rt_table_slug'] ) );
+		if ( isset( $_POST['rt_table_slug'] ) || isset( $_REQUEST['rt_table_slug'] ) ) {
+			$raw_slug = $_POST['rt_table_slug'] ?? $_REQUEST['rt_table_slug'];
+			$meta['slug'] = sanitize_title( wp_unslash( $raw_slug ) );
 		}
-		if ( isset( $_POST['rt_table_description'] ) ) {
-			$meta['description'] = sanitize_textarea_field( wp_unslash( $_POST['rt_table_description'] ) );
+		if ( isset( $_POST['rt_table_description'] ) || isset( $_REQUEST['rt_table_description'] ) ) {
+			$raw_desc = $_POST['rt_table_description'] ?? $_REQUEST['rt_table_description'];
+			$meta['description'] = sanitize_textarea_field( wp_unslash( $raw_desc ) );
 		}
-		if ( isset( $_POST['rt_table_status'] ) ) {
-			$meta['status'] = in_array( $_POST['rt_table_status'], [ 'draft', 'published' ], true ) ? sanitize_key( wp_unslash( $_POST['rt_table_status'] ) ) : 'draft';
+		if ( isset( $_POST['rt_table_status'] ) || isset( $_REQUEST['rt_table_status'] ) ) {
+			$raw_status = $_POST['rt_table_status'] ?? $_REQUEST['rt_table_status'];
+			$meta['status'] = in_array( $raw_status, [ 'draft', 'published' ], true ) ? sanitize_key( wp_unslash( $raw_status ) ) : 'draft';
 		}
 
 		$result = Table_Repository::update_table_meta( $table_id, $meta );
 		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( [ 'message' => $result->get_error_message() ] );
+			Logger::error( 'Save table metadata failed: ' . $result->get_error_message() );
+			wp_send_json_error( [
+				'code'    => $result->get_error_code(),
+				'message' => $result->get_error_message(),
+			], 400 );
+			return;
 		}
 
-		$template = isset( $_POST['rt_table_template'] ) ? sanitize_key( wp_unslash( $_POST['rt_table_template'] ) ) : '';
-		$allowed_templates = [ '', 'indigo', 'obsidian', 'emerald' ];
-		if ( in_array( $template, $allowed_templates, true ) ) {
-			Table_Repository::update_table_settings( $table_id, [ 'template' => $template ] );
+		$raw_template = $_POST['rt_table_template'] ?? ( $_REQUEST['rt_table_template'] ?? null );
+		if ( null !== $raw_template ) {
+			$template = sanitize_key( wp_unslash( $raw_template ) );
+			$allowed_templates = [ '', 'indigo', 'obsidian', 'emerald' ];
+			if ( in_array( $template, $allowed_templates, true ) ) {
+				Table_Repository::update_table_settings( $table_id, [ 'template' => $template ] );
+			}
 		}
 
 		$updated_table = Table_Repository::get_table( $table_id );
+
+		Logger::info( 'Table settings updated successfully.', [
+			'table_id' => $table_id,
+		] );
 
 		wp_send_json_success( [
 			'message' => __( 'Table settings updated successfully!', 'roxytable' ),
 			'table'   => $updated_table,
 		] );
+		return;
 	}
 
 	/**
 	 * AJAX endpoint: Delete single table.
 	 */
 	public function ajax_delete_table() {
-		$table_id = isset( $_POST['table_id'] ) ? absint( $_POST['table_id'] ) : 0;
-		check_ajax_referer( 'roxytable_delete_table_' . $table_id, 'nonce' );
+		Logger::info( 'AJAX delete table initiated.', [
+			'user_id' => get_current_user_id(),
+		] );
 
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'roxytable' ) ] );
+		$table_id = isset( $_POST['table_id'] ) ? absint( $_POST['table_id'] ) : ( isset( $_REQUEST['table_id'] ) ? absint( $_REQUEST['table_id'] ) : 0 );
+		if ( $table_id < 1 ) {
+			Logger::error( 'Delete table failed: Invalid table ID ' . $table_id );
+			wp_send_json_error( [
+				'code'    => 'invalid_table_id',
+				'message' => __( 'Invalid table ID.', 'roxytable' ),
+			], 400 );
+			return;
 		}
 
-		if ( $table_id < 1 ) {
-			wp_send_json_error( [ 'message' => __( 'Invalid table ID.', 'roxytable' ) ] );
+		$nonce = isset( $_REQUEST['nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['nonce'] ) ) : '';
+		if ( empty( $nonce ) || ( ! wp_verify_nonce( $nonce, 'roxytable_delete_table_' . $table_id ) && ! wp_verify_nonce( $nonce, 'roxytable_delete_table' ) ) ) {
+			Logger::error( 'Delete table security check failed: Invalid nonce for table ' . $table_id );
+			wp_send_json_error( [
+				'code'    => 'security_check_failed',
+				'message' => __( 'Security verification failed or session expired. Please refresh the page.', 'roxytable' ),
+			], 403 );
+			return;
+		}
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			Logger::error( 'Delete table failed: User lacks manage_options capability.' );
+			wp_send_json_error( [
+				'code'    => 'permission_denied',
+				'message' => __( 'Permission denied.', 'roxytable' ),
+			], 403 );
+			return;
+		}
+
+		$table = Table_Repository::get_table( $table_id );
+		if ( ! $table ) {
+			Logger::error( 'Delete table failed: Table not found ' . $table_id );
+			wp_send_json_error( [
+				'code'    => 'table_not_found',
+				'message' => __( 'Table not found.', 'roxytable' ),
+			], 404 );
+			return;
 		}
 
 		$success = Table_Repository::delete_table( $table_id );
 		if ( ! $success ) {
-			wp_send_json_error( [ 'message' => __( 'Failed to delete table.', 'roxytable' ) ] );
+			Logger::error( 'Delete table failed in database for table ID ' . $table_id );
+			wp_send_json_error( [
+				'code'    => 'delete_failed',
+				'message' => __( 'Failed to delete table.', 'roxytable' ),
+			], 500 );
+			return;
 		}
+
+		Logger::info( 'Table deleted successfully.', [
+			'table_id' => $table_id,
+		] );
 
 		wp_send_json_success( [
 			'message'  => __( 'Table deleted successfully!', 'roxytable' ),
 			'table_id' => $table_id,
 		] );
+		return;
 	}
 
 	/**
 	 * AJAX endpoint: Bulk actions (Delete / Change status).
 	 */
 	public function ajax_bulk_tables() {
-		check_ajax_referer( 'roxytable_bulk_tables', 'nonce' );
+		Logger::info( 'AJAX bulk tables action initiated.', [
+			'user_id' => get_current_user_id(),
+		] );
 
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'roxytable' ) ] );
+		$nonce = isset( $_REQUEST['nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['nonce'] ) ) : '';
+		if ( empty( $nonce ) || ! wp_verify_nonce( $nonce, 'roxytable_bulk_tables' ) ) {
+			Logger::error( 'Bulk tables security check failed: Invalid nonce.' );
+			wp_send_json_error( [
+				'code'    => 'security_check_failed',
+				'message' => __( 'Security verification failed or session expired. Please refresh the page.', 'roxytable' ),
+			], 403 );
+			return;
 		}
 
-		$table_ids   = isset( $_POST['rt_table_ids'] ) ? array_map( 'absint', (array) wp_unslash( $_POST['rt_table_ids'] ) ) : [];
-		$bulk_action = isset( $_POST['rt_bulk_action'] ) ? sanitize_key( wp_unslash( $_POST['rt_bulk_action'] ) ) : '';
-		$bulk_status = isset( $_POST['rt_bulk_status'] ) ? sanitize_key( wp_unslash( $_POST['rt_bulk_status'] ) ) : 'draft';
+		if ( ! current_user_can( 'manage_options' ) ) {
+			Logger::error( 'Bulk tables failed: User lacks manage_options capability.' );
+			wp_send_json_error( [
+				'code'    => 'permission_denied',
+				'message' => __( 'Permission denied.', 'roxytable' ),
+			], 403 );
+			return;
+		}
+
+		$raw_ids     = $_POST['rt_table_ids'] ?? ( $_REQUEST['rt_table_ids'] ?? [] );
+		$table_ids   = array_filter( array_map( 'absint', (array) wp_unslash( $raw_ids ) ) );
+		$raw_action  = $_POST['rt_bulk_action'] ?? ( $_REQUEST['rt_bulk_action'] ?? '' );
+		$bulk_action = sanitize_key( wp_unslash( $raw_action ) );
+		$raw_status  = $_POST['rt_bulk_status'] ?? ( $_REQUEST['rt_bulk_status'] ?? 'draft' );
+		$bulk_status = sanitize_key( wp_unslash( $raw_status ) );
 
 		if ( empty( $table_ids ) ) {
-			wp_send_json_error( [ 'message' => __( 'No tables selected.', 'roxytable' ) ] );
+			Logger::error( 'Bulk tables failed: No tables selected.' );
+			wp_send_json_error( [
+				'code'    => 'no_tables_selected',
+				'message' => __( 'No tables selected.', 'roxytable' ),
+			], 400 );
+			return;
 		}
 
 		if ( 'delete' === $bulk_action ) {
 			$count = Table_Repository::bulk_delete( $table_ids );
+			Logger::info( 'Bulk delete completed successfully.', [
+				'count'     => $count,
+				'table_ids' => $table_ids,
+			] );
 			wp_send_json_success( [
 				'message'   => sprintf( __( '%d tables deleted.', 'roxytable' ), $count ),
 				'action'    => 'delete',
 				'table_ids' => $table_ids,
 			] );
+			return;
 		} elseif ( 'change_status' === $bulk_action ) {
+			if ( ! in_array( $bulk_status, [ 'draft', 'published' ], true ) ) {
+				$bulk_status = 'draft';
+			}
 			$count = Table_Repository::bulk_update_status( $table_ids, $bulk_status );
+			Logger::info( 'Bulk status update completed successfully.', [
+				'count'     => $count,
+				'status'    => $bulk_status,
+				'table_ids' => $table_ids,
+			] );
 			wp_send_json_success( [
 				'message'   => sprintf( __( '%d tables updated to %s.', 'roxytable' ), $count, $bulk_status ),
 				'action'    => 'status',
 				'status'    => $bulk_status,
 				'table_ids' => $table_ids,
 			] );
+			return;
 		}
 
-		wp_send_json_error( [ 'message' => __( 'Invalid bulk action.', 'roxytable' ) ] );
+		Logger::error( 'Bulk tables failed: Invalid bulk action "' . $bulk_action . '"' );
+		wp_send_json_error( [
+			'code'    => 'invalid_bulk_action',
+			'message' => __( 'Invalid bulk action.', 'roxytable' ),
+		], 400 );
+		return;
 	}
 
 	/**
 	 * AJAX endpoint: Create table from template.
 	 */
 	public function ajax_use_template() {
-		check_ajax_referer( 'roxytable_use_template', 'nonce' );
+		Logger::info( 'AJAX use template initiated.', [
+			'user_id' => get_current_user_id(),
+		] );
 
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'roxytable' ) ] );
+		$nonce = isset( $_REQUEST['nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['nonce'] ) ) : '';
+		if ( empty( $nonce ) || ! wp_verify_nonce( $nonce, 'roxytable_use_template' ) ) {
+			Logger::error( 'Use template security check failed: Invalid nonce.' );
+			wp_send_json_error( [
+				'code'    => 'security_check_failed',
+				'message' => __( 'Security verification failed or session expired. Please refresh the page.', 'roxytable' ),
+			], 403 );
+			return;
 		}
 
-		$template = isset( $_POST['template'] ) ? sanitize_key( wp_unslash( $_POST['template'] ) ) : '';
+		if ( ! current_user_can( 'manage_options' ) ) {
+			Logger::error( 'Use template failed: User lacks manage_options capability.' );
+			wp_send_json_error( [
+				'code'    => 'permission_denied',
+				'message' => __( 'Permission denied.', 'roxytable' ),
+			], 403 );
+			return;
+		}
+
+		$raw_tpl  = $_POST['template'] ?? ( $_REQUEST['template'] ?? '' );
+		$template = sanitize_key( wp_unslash( $raw_tpl ) );
 		$templates = [
 			'indigo'   => [ 'name' => 'Indigo Clean Table', 'columns' => [ 'Institution', 'Website', 'Description' ] ],
 			'obsidian' => [ 'name' => 'Dark Minimal Table', 'columns' => [ 'Name', 'Value', 'Description' ] ],
@@ -899,7 +1103,12 @@ class Admin_Menu {
 		];
 
 		if ( ! isset( $templates[ $template ] ) ) {
-			wp_send_json_error( [ 'message' => __( 'Invalid template.', 'roxytable' ) ] );
+			Logger::error( 'Use template failed: Invalid template key "' . $template . '"' );
+			wp_send_json_error( [
+				'code'    => 'invalid_template',
+				'message' => __( 'Invalid template.', 'roxytable' ),
+			], 400 );
+			return;
 		}
 
 		$definition = $templates[ $template ];
@@ -913,87 +1122,225 @@ class Admin_Menu {
 		] );
 
 		if ( is_wp_error( $table_id ) ) {
-			wp_send_json_error( [ 'message' => $table_id->get_error_message() ] );
+			Logger::error( 'Use template failed to insert table: ' . $table_id->get_error_message() );
+			wp_send_json_error( [
+				'code'    => $table_id->get_error_code(),
+				'message' => $table_id->get_error_message(),
+			], 400 );
+			return;
 		}
 
 		Table_Repository::insert_columns( $table_id, $definition['columns'], false );
 		Table_Repository::insert_rows( $table_id, [ array_fill( 0, count( $definition['columns'] ), '' ) ] );
+
+		Logger::info( 'Template table created successfully.', [
+			'table_id' => $table_id,
+			'template' => $template,
+		] );
 
 		wp_send_json_success( [
 			'message'      => __( 'Template table created successfully!', 'roxytable' ),
 			'table_id'     => $table_id,
 			'redirect_url' => admin_url( 'admin.php?page=roxytable-tables&action=edit&id=' . $table_id . '&template_created=1' ),
 		] );
+		return;
 	}
 
 	/**
 	 * AJAX endpoint: File upload (Step 1 -> Step 2 transition).
 	 */
 	public function ajax_upload_file() {
-		check_ajax_referer( 'roxytable_file_upload', 'nonce' );
+		Logger::info( 'AJAX upload request initiated.', [
+			'user_id' => get_current_user_id(),
+		] );
+
+		$nonce = isset( $_REQUEST['nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['nonce'] ) ) : '';
+		if ( empty( $nonce ) && isset( $_REQUEST['roxytable_upload_nonce'] ) ) {
+			$nonce = sanitize_text_field( wp_unslash( $_REQUEST['roxytable_upload_nonce'] ) );
+		}
+		if ( empty( $nonce ) && isset( $_POST['nonce'] ) ) {
+			$nonce = sanitize_text_field( wp_unslash( $_POST['nonce'] ) );
+		}
+		if ( empty( $nonce ) && isset( $_POST['roxytable_upload_nonce'] ) ) {
+			$nonce = sanitize_text_field( wp_unslash( $_POST['roxytable_upload_nonce'] ) );
+		}
+
+		if ( empty( $nonce ) || ! wp_verify_nonce( $nonce, 'roxytable_file_upload' ) ) {
+			Logger::error( 'AJAX upload security check failed: Invalid nonce.' );
+			wp_send_json_error( [
+				'code'    => 'security_check_failed',
+				'message' => __( 'Security verification failed or session expired. Please refresh the page and try again.', 'roxytable' ),
+			], 403 );
+			return;
+		}
 
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'roxytable' ) ] );
+			Logger::error( 'AJAX upload failed: User lacks manage_options capability.' );
+			wp_send_json_error( [
+				'code'    => 'permission_denied',
+				'message' => __( 'Permission denied: You do not have permission to upload files.', 'roxytable' ),
+			], 403 );
+			return;
 		}
 
 		$upload_result = Import_Handler::handle_upload();
-		if ( true !== $upload_result ) {
-			wp_send_json_error( [ 'message' => is_string( $upload_result ) ? $upload_result : __( 'File upload failed.', 'roxytable' ) ] );
+		if ( is_wp_error( $upload_result ) ) {
+			$err_code = $upload_result->get_error_code();
+			$status_code = 400;
+			if ( 'permission_denied' === $err_code || 'security_check_failed' === $err_code ) {
+				$status_code = 403;
+			} elseif ( 'file_too_large' === $err_code ) {
+				$status_code = 413;
+			}
+
+			wp_send_json_error( [
+				'code'    => $err_code,
+				'message' => $upload_result->get_error_message(),
+			], $status_code );
+			return;
+		} elseif ( true !== $upload_result ) {
+			$msg = is_string( $upload_result ) ? $upload_result : __( 'File upload failed.', 'roxytable' );
+			wp_send_json_error( [
+				'code'    => 'upload_failed',
+				'message' => $msg,
+			], 400 );
+			return;
 		}
 
 		$worksheets = Import_Handler::get_worksheets();
-		if ( is_string( $worksheets ) ) {
-			wp_send_json_error( [ 'message' => $worksheets ] );
+		if ( is_wp_error( $worksheets ) ) {
+			wp_send_json_error( [
+				'code'    => $worksheets->get_error_code(),
+				'message' => $worksheets->get_error_message(),
+			], 422 );
+			return;
+		} elseif ( is_string( $worksheets ) ) {
+			wp_send_json_error( [
+				'code'    => 'worksheet_parse_error',
+				'message' => $worksheets,
+			], 422 );
+			return;
 		}
+
+		Logger::info( 'AJAX upload completed successfully.', [
+			'worksheets_count' => count( $worksheets ),
+		] );
 
 		wp_send_json_success( [
 			'message'    => __( 'File uploaded successfully!', 'roxytable' ),
 			'worksheets' => $worksheets,
 			'step'       => 2,
 		] );
+		return;
 	}
 
 	/**
 	 * AJAX endpoint: Confirm import (Step 3 -> Persist to DB).
 	 */
 	public function ajax_confirm_import() {
-		check_ajax_referer( 'roxytable_confirm_import', 'nonce' );
+		Logger::info( 'AJAX confirm import initiated.', [
+			'user_id' => get_current_user_id(),
+		] );
+
+		$nonce = isset( $_REQUEST['nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['nonce'] ) ) : '';
+		if ( empty( $nonce ) && isset( $_REQUEST['roxytable_confirm_nonce'] ) ) {
+			$nonce = sanitize_text_field( wp_unslash( $_REQUEST['roxytable_confirm_nonce'] ) );
+		}
+		if ( empty( $nonce ) && isset( $_POST['nonce'] ) ) {
+			$nonce = sanitize_text_field( wp_unslash( $_POST['nonce'] ) );
+		}
+		if ( empty( $nonce ) && isset( $_POST['roxytable_confirm_nonce'] ) ) {
+			$nonce = sanitize_text_field( wp_unslash( $_POST['roxytable_confirm_nonce'] ) );
+		}
+
+		if ( empty( $nonce ) || ! wp_verify_nonce( $nonce, 'roxytable_confirm_import' ) ) {
+			Logger::error( 'AJAX confirm import failed: Invalid nonce.' );
+			wp_send_json_error( [
+				'code'    => 'security_check_failed',
+				'message' => __( 'Security verification failed or session expired. Please refresh the page.', 'roxytable' ),
+			], 403 );
+			return;
+		}
 
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'roxytable' ) ] );
+			Logger::error( 'AJAX confirm import failed: User lacks manage_options capability.' );
+			wp_send_json_error( [
+				'code'    => 'permission_denied',
+				'message' => __( 'Permission denied: You do not have permission to import tables.', 'roxytable' ),
+			], 403 );
+			return;
 		}
 
 		$result = $this->handle_confirm_import();
-		if ( is_string( $result ) ) {
-			wp_send_json_error( [ 'message' => $result ] );
+		if ( is_wp_error( $result ) ) {
+			Logger::error( 'Confirm import failed: ' . $result->get_error_message() );
+			wp_send_json_error( [
+				'code'    => $result->get_error_code(),
+				'message' => $result->get_error_message(),
+			], 400 );
+			return;
+		} elseif ( is_string( $result ) ) {
+			Logger::error( 'Confirm import failed: ' . $result );
+			wp_send_json_error( [
+				'code'    => 'import_failed',
+				'message' => $result,
+			], 400 );
+			return;
 		}
+
+		Logger::info( 'Table successfully imported into database.', [
+			'table_id' => $result,
+		] );
 
 		wp_send_json_success( [
 			'message'      => __( 'Table imported successfully!', 'roxytable' ),
 			'table_id'     => $result,
 			'redirect_url' => admin_url( 'admin.php?page=roxytable-import&import_success=1' ),
 		] );
+		return;
 	}
 
 	/**
 	 * AJAX endpoint: Save developer profile settings.
 	 */
 	public function ajax_save_profile() {
-		check_ajax_referer( 'roxytable_save_profile', 'nonce' );
+		Logger::info( 'AJAX save profile initiated.', [
+			'user_id' => get_current_user_id(),
+		] );
+
+		$nonce = isset( $_REQUEST['nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['nonce'] ) ) : '';
+		if ( empty( $nonce ) || ! wp_verify_nonce( $nonce, 'roxytable_save_profile' ) ) {
+			Logger::error( 'Save profile security check failed: Invalid nonce.' );
+			wp_send_json_error( [
+				'code'    => 'security_check_failed',
+				'message' => __( 'Security verification failed or session expired. Please refresh the page.', 'roxytable' ),
+			], 403 );
+			return;
+		}
 
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'roxytable' ) ] );
+			Logger::error( 'Save profile failed: User lacks manage_options capability.' );
+			wp_send_json_error( [
+				'code'    => 'permission_denied',
+				'message' => __( 'Permission denied.', 'roxytable' ),
+			], 403 );
+			return;
 		}
 
-		if ( isset( $_POST['name'] ) ) {
-			update_option( 'roxytable_dev_name', sanitize_text_field( wp_unslash( $_POST['name'] ) ) );
+		if ( isset( $_POST['name'] ) || isset( $_REQUEST['name'] ) ) {
+			$val = $_POST['name'] ?? $_REQUEST['name'];
+			update_option( 'roxytable_dev_name', sanitize_text_field( wp_unslash( $val ) ) );
 		}
-		if ( isset( $_POST['title'] ) ) {
-			update_option( 'roxytable_dev_title', sanitize_text_field( wp_unslash( $_POST['title'] ) ) );
+		if ( isset( $_POST['title'] ) || isset( $_REQUEST['title'] ) ) {
+			$val = $_POST['title'] ?? $_REQUEST['title'];
+			update_option( 'roxytable_dev_title', sanitize_text_field( wp_unslash( $val ) ) );
 		}
-		if ( isset( $_POST['location'] ) ) {
-			update_option( 'roxytable_dev_location', sanitize_text_field( wp_unslash( $_POST['location'] ) ) );
+		if ( isset( $_POST['location'] ) || isset( $_REQUEST['location'] ) ) {
+			$val = $_POST['location'] ?? $_REQUEST['location'];
+			update_option( 'roxytable_dev_location', sanitize_text_field( wp_unslash( $val ) ) );
 		}
+
+		Logger::info( 'Developer profile updated successfully.' );
 
 		wp_send_json_success( [
 			'message'    => __( 'Profile updated successfully!', 'roxytable' ),
@@ -1002,31 +1349,79 @@ class Admin_Menu {
 			'title'      => get_option( 'roxytable_dev_title', 'WordPress Developer with 4+ years working Experience' ),
 			'location'   => get_option( 'roxytable_dev_location', 'Live in Nigeria' ),
 		] );
+		return;
 	}
 
 	/**
 	 * AJAX endpoint: Save table image thumbnail URL.
 	 */
 	public function ajax_save_table_image() {
-		check_ajax_referer( 'roxytable_save_table_image', 'nonce' );
+		Logger::info( 'AJAX save table image initiated.', [
+			'user_id' => get_current_user_id(),
+		] );
+
+		$nonce = isset( $_REQUEST['nonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['nonce'] ) ) : '';
+		if ( empty( $nonce ) || ! wp_verify_nonce( $nonce, 'roxytable_save_table_image' ) ) {
+			Logger::error( 'Save table image security check failed: Invalid nonce.' );
+			wp_send_json_error( [
+				'code'    => 'security_check_failed',
+				'message' => __( 'Security verification failed or session expired. Please refresh the page.', 'roxytable' ),
+			], 403 );
+			return;
+		}
 
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( [ 'message' => __( 'Permission denied.', 'roxytable' ) ] );
+			Logger::error( 'Save table image failed: User lacks manage_options capability.' );
+			wp_send_json_error( [
+				'code'    => 'permission_denied',
+				'message' => __( 'Permission denied.', 'roxytable' ),
+			], 403 );
+			return;
 		}
 
-		$table_id  = isset( $_POST['table_id'] ) ? absint( $_POST['table_id'] ) : 0;
-		$image_url = isset( $_POST['image_url'] ) ? esc_url_raw( wp_unslash( $_POST['image_url'] ) ) : '';
+		$table_id  = isset( $_POST['table_id'] ) ? absint( $_POST['table_id'] ) : ( isset( $_REQUEST['table_id'] ) ? absint( $_REQUEST['table_id'] ) : 0 );
+		$raw_image = $_POST['image_url'] ?? ( $_REQUEST['image_url'] ?? '' );
+		$image_url = esc_url_raw( wp_unslash( $raw_image ) );
+		$raw_att   = $_POST['attachment_id'] ?? ( $_REQUEST['attachment_id'] ?? 0 );
+		$att_id    = absint( $raw_att );
 
 		if ( $table_id < 1 ) {
-			wp_send_json_error( [ 'message' => __( 'Invalid table ID.', 'roxytable' ) ] );
+			Logger::error( 'Save table image failed: Invalid table ID ' . $table_id );
+			wp_send_json_error( [
+				'code'    => 'invalid_table_id',
+				'message' => __( 'Invalid table ID.', 'roxytable' ),
+			], 400 );
+			return;
 		}
 
-		Table_Repository::update_table_settings( $table_id, [ 'image' => $image_url ] );
+		$table = Table_Repository::get_table( $table_id );
+		if ( ! $table ) {
+			Logger::error( 'Save table image failed: Table not found ' . $table_id );
+			wp_send_json_error( [
+				'code'    => 'table_not_found',
+				'message' => __( 'Table not found.', 'roxytable' ),
+			], 404 );
+			return;
+		}
+
+		$settings_update = [ 'image' => $image_url ];
+		if ( $att_id > 0 ) {
+			$settings_update['image_id'] = $att_id;
+		}
+		Table_Repository::update_table_settings( $table_id, $settings_update );
+
+		Logger::info( 'Table thumbnail image updated successfully.', [
+			'table_id'      => $table_id,
+			'image_url'     => $image_url,
+			'attachment_id' => $att_id,
+		] );
 
 		wp_send_json_success( [
-			'message'   => __( 'Table thumbnail image updated successfully!', 'roxytable' ),
-			'table_id'  => $table_id,
-			'image_url' => $image_url,
+			'message'       => __( 'Table thumbnail image updated successfully!', 'roxytable' ),
+			'table_id'      => $table_id,
+			'image_url'     => $image_url,
+			'attachment_id' => $att_id,
 		] );
+		return;
 	}
 }

@@ -66,7 +66,7 @@ class Frontend {
 		}
 
 		$args = [
-			'limit'       => isset( $_POST['limit'] ) ? max( 1, intval( $_POST['limit'] ) ) : 25,
+			'limit'       => isset( $_POST['limit'] ) ? intval( $_POST['limit'] ) : -1,
 			'offset'      => isset( $_POST['offset'] ) ? max( 0, intval( $_POST['offset'] ) ) : 0,
 			'search'      => isset( $_POST['search'] ) ? sanitize_text_field( wp_unslash( $_POST['search'] ) ) : '',
 			'sort_col'    => isset( $_POST['sort_col'] ) ? intval( $_POST['sort_col'] ) : -1,
@@ -147,10 +147,9 @@ class Frontend {
 		$rows       = Table_Repository::get_rows( $table_id, max( 1, $total_rows ), 0 );
 		$stats      = Table_Repository::get_column_statistics( $table_id );
 
-		$settings       = json_decode( (string) ( $table['settings'] ?? '' ), true );
-		if ( ! is_array( $settings ) ) {
-			$settings = [];
-		}
+		$settings = is_array( $table['settings'] ?? null )
+			? $table['settings']
+			: ( json_decode( (string) ( $table['settings'] ?? '' ), true ) ?: [] );
 		$template       = ! empty( $settings['template'] ) ? sanitize_html_class( $settings['template'] ) : '';
 		$template_class = $template ? ' roxytable-template-' . $template : '';
 

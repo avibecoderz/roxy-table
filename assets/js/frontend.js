@@ -480,8 +480,8 @@
             payload.append('action', 'roxytable_filter_rows');
             payload.append('table_id', tableId);
             payload.append('nonce', nonce);
-            payload.append('limit', rowsPerPage);
-            payload.append('offset', (currentPage - 1) * rowsPerPage);
+            payload.append('limit', -1);
+            payload.append('offset', 0);
             payload.append('search', search.value.trim());
             payload.append('sort_col', sortIndex);
             payload.append('sort_dir', sortDir === 1 ? 'asc' : 'desc');
@@ -532,44 +532,28 @@
 
         function renderAjaxPager(matchedCount, totalCount){
             pager.innerHTML = '';
-            var pages = Math.max(1, Math.ceil(matchedCount / rowsPerPage));
-            var start = Math.min( (currentPage - 1) * rowsPerPage + 1, matchedCount );
-            var end = Math.min( currentPage * rowsPerPage, matchedCount );
-
             var info = document.createElement('div');
-            info.style.color = '#666'; info.style.fontSize = '0.9rem';
-            info.textContent = matchedCount > 0 ? ('Showing ' + start + '–' + end + ' of ' + matchedCount + ' (' + totalCount + ' total)') : ('Showing 0 of ' + totalCount + ' records');
+            info.style.color = '#666';
+            info.style.fontSize = '0.9rem';
+            info.textContent = matchedCount > 0 ? ('Showing 1–' + matchedCount + ' of ' + matchedCount + ' (' + totalCount + ' total)') : ('Showing 0 of ' + totalCount + ' records');
             pager.appendChild(info);
-
-            var prev = createControl('button', { type: 'button' }); prev.textContent = '< Prev'; prev.className = 'roxytable-btn roxytable-btn-secondary'; prev.disabled = currentPage <= 1;
-            prev.addEventListener('click', function(){ if (currentPage > 1){ currentPage--; fetchAjaxFilters(); } }); pager.appendChild(prev);
-
-            var next = createControl('button', { type: 'button' }); next.textContent = 'Next >'; next.className = 'roxytable-btn roxytable-btn-secondary'; next.disabled = currentPage >= pages;
-            next.addEventListener('click', function(){ if (currentPage < pages){ currentPage++; fetchAjaxFilters(); } }); pager.appendChild(next);
         }
 
         function renderPage(){
             tbody.innerHTML = '';
-            var start = (currentPage - 1) * rowsPerPage; var end = start + rowsPerPage;
-            var pageRows = filtered.slice(start, end);
-            pageRows.forEach(function(r){ tbody.appendChild(r); });
+            filtered.forEach(function(r){ tbody.appendChild(r); });
             renderPager();
         }
 
         function renderPager(){
             pager.innerHTML = '';
-            var matched = filtered.length; var total = allRows.length; var pages = Math.max(1, Math.ceil(matched / rowsPerPage));
-            var start = Math.min( (currentPage - 1) * rowsPerPage + 1, matched );
-            var end = Math.min( currentPage * rowsPerPage, matched );
-            var info = document.createElement('div'); info.style.color = '#666'; info.style.fontSize = '0.9rem';
-            info.textContent = matched > 0 ? ('Showing ' + start + '–' + end + ' of ' + matched + ' (' + total + ' total)') : ('Showing 0 of ' + total + ' records');
+            var matched = filtered.length;
+            var total = allRows.length;
+            var info = document.createElement('div');
+            info.style.color = '#666';
+            info.style.fontSize = '0.9rem';
+            info.textContent = matched > 0 ? ('Showing 1–' + matched + ' of ' + matched + ' (' + total + ' total)') : ('Showing 0 of ' + total + ' records');
             pager.appendChild(info);
-
-            var prev = createControl('button', { type: 'button' }); prev.textContent = '< Prev'; prev.className = 'roxytable-btn roxytable-btn-secondary'; prev.disabled = currentPage <= 1;
-            prev.addEventListener('click', function(){ if (currentPage > 1){ currentPage--; renderPage(); } }); pager.appendChild(prev);
-
-            var next = createControl('button', { type: 'button' }); next.textContent = 'Next >'; next.className = 'roxytable-btn roxytable-btn-secondary'; next.disabled = currentPage >= pages;
-            next.addEventListener('click', function(){ if (currentPage < pages){ currentPage++; renderPage(); } }); pager.appendChild(next);
         }
 
         function applySort(idx){
