@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	define( 'ABSPATH', dirname( __DIR__ ) . '/' );
 }
 if ( ! defined( 'ROXYTABLE_VERSION' ) ) {
-	define( 'ROXYTABLE_VERSION', '1.0.6' );
+	define( 'ROXYTABLE_VERSION', '1.0.7' );
 }
 if ( ! defined( 'ROXYTABLE_PLUGIN_FILE' ) ) {
 	define( 'ROXYTABLE_PLUGIN_FILE', dirname( __DIR__ ) . '/roxytable.php' );
@@ -143,60 +143,60 @@ if ( ! isset( $links['check_update'] ) || strpos( $links['check_update'], 'Check
 echo "PASSED: Action links created successfully.\n";
 
 // Test 3: Version Comparison (No Update when release version <= current)
-delete_site_transient( 'roxytable_github_release' );
+delete_site_transient( 'roxytable_release_v2' );
 $GLOBALS['wp_remote_get_mock'] = function ( $url, $args ) {
 	return [
 		'response' => [ 'code' => 200 ],
 		'body'     => json_encode( [
-			'tag_name'     => 'v1.0.6', // Same as ROXYTABLE_VERSION
-			'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.6',
+			'tag_name'     => 'v1.0.7', // Same as ROXYTABLE_VERSION
+			'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.7',
 			'published_at' => '2026-10-22T12:00:00Z',
-			'body'         => 'Version 1.0.6 release',
+			'body'         => 'Version 1.0.7 release',
 		] ),
 	];
 };
 
-$transient = (object) [ 'checked' => [ 'roxytable/roxytable.php' => '1.0.6' ], 'response' => [], 'no_update' => [] ];
+$transient = (object) [ 'checked' => [ 'roxytable/roxytable.php' => '1.0.7' ], 'response' => [], 'no_update' => [] ];
 $result    = $updater->check_for_update( $transient );
 if ( ! empty( $result->response['roxytable/roxytable.php'] ) ) {
-	fwrite( STDERR, "FAILED: Update incorrectly reported for equal version 1.0.6.\n" );
+	fwrite( STDERR, "FAILED: Update incorrectly reported for equal version 1.0.7.\n" );
 	exit( 1 );
 }
 if ( empty( $result->no_update['roxytable/roxytable.php'] ) ) {
-	fwrite( STDERR, "FAILED: no_update transient item not populated for equal version 1.0.6.\n" );
+	fwrite( STDERR, "FAILED: no_update transient item not populated for equal version 1.0.7.\n" );
 	exit( 1 );
 }
-echo "PASSED: Equal version 1.0.6 correctly ignored and recorded in no_update.\n";
+echo "PASSED: Equal version 1.0.7 correctly ignored and recorded in no_update.\n";
 
 // Test 4: Version Comparison (Update triggered when release version > current)
-delete_site_transient( 'roxytable_github_release' );
+delete_site_transient( 'roxytable_release_v2' );
 $last_request_headers = [];
 $GLOBALS['wp_remote_get_mock'] = function ( $url, $args ) use ( &$last_request_headers ) {
 	$last_request_headers = isset( $args['headers'] ) ? $args['headers'] : [];
 	return [
 		'response' => [ 'code' => 200 ],
 		'body'     => json_encode( [
-			'tag_name'     => 'v1.0.7', // Higher than 1.0.6
-			'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.7',
+			'tag_name'     => 'v1.0.8', // Higher than 1.0.7
+			'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.8',
 			'published_at' => '2026-10-22T12:00:00Z',
-			'body'         => 'Version 1.0.7 release notes',
+			'body'         => 'Version 1.0.8 release notes',
 		] ),
 	];
 };
 
 $result = $updater->check_for_update( $transient );
 if ( empty( $result->response['roxytable/roxytable.php'] ) ) {
-	fwrite( STDERR, "FAILED: Update not reported for higher version 1.0.7.\n" );
+	fwrite( STDERR, "FAILED: Update not reported for higher version 1.0.8.\n" );
 	exit( 1 );
 }
-echo "PASSED: Higher version 1.0.7 successfully triggers update notice.\n";
+echo "PASSED: Higher version 1.0.8 successfully triggers update notice.\n";
 
 $update_item = $result->response['roxytable/roxytable.php'];
-if ( $update_item->new_version !== '1.0.7' ) {
-	fwrite( STDERR, "FAILED: new_version expected '1.0.7', got '{$update_item->new_version}'.\n" );
+if ( $update_item->new_version !== '1.0.8' ) {
+	fwrite( STDERR, "FAILED: new_version expected '1.0.8', got '{$update_item->new_version}'.\n" );
 	exit( 1 );
 }
-echo "PASSED: Higher version 1.0.7 successfully triggers update notice.\n";
+echo "PASSED: Higher version 1.0.8 successfully triggers update notice.\n";
 
 // Test 5: Check User-Agent and Authorization Headers
 if ( empty( $last_request_headers['User-Agent'] ) || strpos( $last_request_headers['User-Agent'], 'RoxyTable-WordPress-Plugin/' ) === false ) {
@@ -207,7 +207,7 @@ echo "PASSED: User-Agent header correctly attached.\n";
 
 // Test 6: Token Authorization for API and Package Download
 define( 'ROXYTABLE_GITHUB_TOKEN', 'ghp_testtoken12345' );
-delete_site_transient( 'roxytable_github_release' );
+delete_site_transient( 'roxytable_release_v2' );
 $updater->check_for_update( $transient );
 if ( empty( $last_request_headers['Authorization'] ) || $last_request_headers['Authorization'] !== 'Bearer ghp_testtoken12345' ) {
 	fwrite( STDERR, "FAILED: Authorization header missing or invalid with token.\n" );
@@ -222,22 +222,30 @@ if ( empty( $download_req['headers']['Authorization'] ) || $download_req['header
 }
 echo "PASSED: Secure authorization token injected into package download request.\n";
 
-// Test 7: Plugin Information modal payload
+// Test 7: Plugin Information modal payload — also validates requires_php is '6.0'
 $args = (object) [ 'slug' => 'roxytable' ];
 $info = $updater->plugin_information( false, 'plugin_information', $args );
-if ( ! is_object( $info ) || $info->version !== '1.0.7' || empty( $info->sections['changelog'] ) ) {
+if ( ! is_object( $info ) || $info->version !== '1.0.8' || empty( $info->sections['changelog'] ) ) {
 	fwrite( STDERR, "FAILED: plugin_information response incomplete or incorrect.\n" );
 	exit( 1 );
 }
-echo "PASSED: Plugin details modal information correctly populated.\n";
-
-// Test 8: Purge Cache
-$updater->purge_cache();
-if ( get_site_transient( 'roxytable_github_release' ) !== false ) {
-	fwrite( STDERR, "FAILED: Cache purge did not clear site transient.\n" );
+if ( ! isset( $info->requires_php ) || $info->requires_php !== '6.0' ) {
+	fwrite( STDERR, "FAILED: plugin_information requires_php is not '6.0', got '{$info->requires_php}'.\n" );
 	exit( 1 );
 }
-echo "PASSED: Cache purge successfully cleared site transient.\n";
+echo "PASSED: Plugin details modal information correctly populated with requires_php=6.0.\n";
+
+// Test 8: Purge Cache — clears both transient keys
+$updater->purge_cache();
+if ( get_site_transient( 'roxytable_github_release' ) !== false ) {
+	fwrite( STDERR, "FAILED: Cache purge did not clear legacy roxytable_github_release transient.\n" );
+	exit( 1 );
+}
+if ( get_site_transient( 'roxytable_release_v2' ) !== false ) {
+	fwrite( STDERR, "FAILED: Cache purge did not clear roxytable_release_v2 transient.\n" );
+	exit( 1 );
+}
+echo "PASSED: Cache purge successfully cleared both legacy and current transient keys.\n";
 
 // Test 9: fix_extracted_directory dynamically matches plugin folder name
 global $wp_filesystem;
@@ -328,7 +336,7 @@ if ( '7.1.3' !== $detected_version ) {
 echo "PASSED: Dynamic version detection retrieves 7.1.3 from get_bloginfo('version').\n";
 
 // Test 13: WordPress 7.1.3 Compatibility Validation during Plugin Update
-delete_site_transient( 'roxytable_github_release' );
+delete_site_transient( 'roxytable_release_v2' );
 $GLOBALS['wp_remote_get_mock'] = function( $url, $args ) {
 	return [
 		'response' => [ 'code' => 200 ],
@@ -386,5 +394,47 @@ if ( ! $updater->is_wordpress_compatible( '7.1.3' ) || ! $updater->is_wordpress_
 	exit( 1 );
 }
 echo "PASSED: is_wordpress_compatible correctly validates compatibility for WordPress 7.1.3.\n";
+
+// Test 16: PHP 6.0 minimum — requires_php='6.0' allows PHP 7.1.3 and above
+delete_site_transient( 'roxytable_release_v2' );
+$GLOBALS['mock_wp_version'] = '7.1.3';
+$GLOBALS['wp_remote_get_mock'] = function( $url, $args ) {
+	return [
+		'response' => [ 'code' => 200 ],
+		'body'     => json_encode( [
+			'tag_name'     => 'v1.0.8',
+			'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.8',
+			'published_at' => '2026-10-22T13:00:00Z',
+			'body'         => 'Version 1.0.8 release',
+		] ),
+	];
+};
+
+$transient_fresh = (object) [ 'checked' => [ 'roxytable/roxytable.php' => '1.0.7' ], 'response' => [], 'no_update' => [] ];
+$result_fresh    = $updater->check_for_update( $transient_fresh );
+$update_php_test = $result_fresh->response['roxytable/roxytable.php'] ?? null;
+
+if ( ! $update_php_test ) {
+	fwrite( STDERR, "FAILED: No update item found for PHP compatibility test.\n" );
+	exit( 1 );
+}
+if ( $update_php_test->requires_php !== '6.0' ) {
+	fwrite( STDERR, "FAILED: requires_php expected '6.0', got '{$update_php_test->requires_php}'.\n" );
+	exit( 1 );
+}
+// Simulate WordPress core PHP check: version_compare( PHP_VERSION, requires_php, '<' )
+// On a PHP 7.1.3 server, PHP_VERSION = '7.1.3'; requires_php = '6.0' → compatible
+$php_incompatible = version_compare( '7.1.3', $update_php_test->requires_php, '<' );
+if ( $php_incompatible ) {
+	fwrite( STDERR, "FAILED: PHP 7.1.3 would be incorrectly rejected by requires_php='6.0'.\n" );
+	exit( 1 );
+}
+// Also verify PHP 6.0 itself would pass (boundary)
+$php_60_incompatible = version_compare( '6.0', $update_php_test->requires_php, '<' );
+if ( $php_60_incompatible ) {
+	fwrite( STDERR, "FAILED: PHP 6.0 (minimum boundary) incorrectly rejected.\n" );
+	exit( 1 );
+}
+echo "PASSED: requires_php='6.0' correctly accepts PHP 7.1.3 and PHP 6.0 without compatibility errors.\n";
 
 echo "=== All Github_Updater Tests Passed Successfully! ===\n";

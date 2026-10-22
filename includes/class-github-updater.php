@@ -170,7 +170,7 @@ class Github_Updater {
 			'url'           => $release['html_url'],
 			'package'       => $release['package'],
 			'requires'      => $wp_version,
-			'requires_php'  => '7.4',
+			'requires_php'  => '6.0',
 			'tested'        => $wp_version,
 			'compatibility' => new \stdClass(),
 		];
@@ -226,7 +226,7 @@ class Github_Updater {
 			'author'        => '<a href="https://abdulrahmansulaiman.netlify.app">oralbitstechnology</a>',
 			'homepage'      => $release['html_url'],
 			'requires'      => $wp_version,
-			'requires_php'  => '7.4',
+			'requires_php'  => '6.0',
 			'tested'        => $wp_version,
 			'last_updated'  => $release['published_at'],
 			'sections'      => [

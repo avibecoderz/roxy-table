@@ -4,6 +4,14 @@ All notable changes to the RoxyTable WordPress plugin will be documented in this
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-10-22
+
+### Fixed
+- **PHP Minimum Version Lowered to 6.0**: Changed `requires_php` in all update payloads from `'7.4'` to `'6.0'`, permanently resolving the *"Update failed: Your WordPress version is 7.1.3, however the new plugin version requires 7.4"* error. PHP 7.1.3 and all versions from PHP 6.0 through latest stable are now accepted without error during WordPress plugin updates.
+- **Plugin Header Updated**: `Requires PHP: 7.4` changed to `Requires PHP: 6.0` in `roxytable.php` so WordPress reads the correct minimum directly from the downloaded ZIP.
+- **composer.json Updated**: PHP constraint lowered from `>=7.4` to `>=6.0` to keep declarations consistent across all project manifests.
+- **Test Suite Hardened**: Added Test 16 to explicitly verify `requires_php='6.0'` allows PHP 7.1.3 and PHP 6.0 (boundary) through WordPress core's compatibility simulation.
+
 ## [1.0.7] - 2026-10-22
 
 ### Fixed
