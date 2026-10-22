@@ -132,7 +132,8 @@ class Github_Updater {
 	 * Purge local GitHub update cache.
 	 */
 	public function purge_cache() {
-		delete_site_transient( 'roxytable_github_release' );
+		delete_site_transient( 'roxytable_github_release' );  // legacy key — clear it too
+		delete_site_transient( 'roxytable_release_v2' );
 	}
 
 	/**
@@ -288,7 +289,7 @@ class Github_Updater {
 	private function get_latest_release() {
 		$version = defined( 'ROXYTABLE_VERSION' ) ? ROXYTABLE_VERSION : '1.0.0';
 
-		$cached = get_site_transient( 'roxytable_github_release' );
+		$cached = get_site_transient( 'roxytable_release_v2' );
 		if ( is_array( $cached ) && ! empty( $cached['version'] ) && version_compare( $cached['version'], $version, '>' ) ) {
 			return $cached;
 		}
@@ -358,7 +359,7 @@ class Github_Updater {
 		}
 
 		$cache_duration = defined( 'HOUR_IN_SECONDS' ) ? 6 * HOUR_IN_SECONDS : 21600;
-		set_site_transient( 'roxytable_github_release', $release, $cache_duration );
+		set_site_transient( 'roxytable_release_v2', $release, $cache_duration );
 		return $release;
 	}
 

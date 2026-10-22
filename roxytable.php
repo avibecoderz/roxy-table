@@ -4,6 +4,8 @@
  * Plugin URI:        https://fokalbits.com/roxytable
  * Description:       Import Excel (.xlsx/.xls/.csv) files and display them as searchable, sortable, paginated HTML tables.
  * Version:           1.0.6
+ * Requires at least: 5.6
+ * Requires PHP:      7.4
  * Author:            Fokalbits	
  * Author URI:        https://fokalbits.com
  * License:           GPL-2.0-or-later
