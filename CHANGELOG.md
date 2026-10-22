@@ -4,6 +4,12 @@ All notable changes to the RoxyTable WordPress plugin will be documented in this
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-10-22
+
+### Fixed
+- **Update Compatibility Error**: Resolved false *"Your WordPress version is 7.1.3, however the new plugin version requires 7.4"* error caused by a stale cached update transient (`roxytable_github_release`) that stored `requires='7.4'` from before the dynamic WP version detection fix. Renamed transient key to `roxytable_release_v2` to force a fresh API fetch.
+- **Plugin Compatibility Headers**: Added `Requires at least: 5.6` and `Requires PHP: 7.4` to the plugin file header so WordPress reads the correct compatibility data directly from the downloaded ZIP during updates, rather than falling back to potentially stale transient data.
+
 ## [1.0.6] - 2026-10-22
 
 ### Added & Enhanced
