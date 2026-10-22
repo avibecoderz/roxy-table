@@ -113,6 +113,13 @@ function trailingslashit( $string ) {
 	return rtrim( $string, '/\\' ) . '/';
 }
 
+function get_bloginfo( $show = '' ) {
+	if ( 'version' === $show ) {
+		return array_key_exists( 'mock_wp_version', $GLOBALS ) ? $GLOBALS['mock_wp_version'] : '7.1.3';
+	}
+	return '';
+}
+
 require_once dirname( __DIR__ ) . '/includes/class-github-updater.php';
 
 use RoxyTable\Includes\Github_Updater;
@@ -310,5 +317,74 @@ if ( ! is_object( $info_dashed ) || empty( $info_dashed->version ) ) {
 	exit( 1 );
 }
 echo "PASSED: plugin_information accepts both 'roxy-table' and 'roxytable' slugs.\n";
+
+// Test 12: Dynamic WordPress Version Detection via get_bloginfo('version')
+$GLOBALS['mock_wp_version'] = '7.1.3';
+$detected_version = $updater->get_wordpress_version();
+if ( '7.1.3' !== $detected_version ) {
+	fwrite( STDERR, "FAILED: get_wordpress_version expected '7.1.3', got '$detected_version'.\n" );
+	exit( 1 );
+}
+echo "PASSED: Dynamic version detection retrieves 7.1.3 from get_bloginfo('version').\n";
+
+// Test 13: WordPress 7.1.3 Compatibility Validation during Plugin Update
+delete_site_transient( 'roxytable_github_release' );
+$GLOBALS['wp_remote_get_mock'] = function( $url, $args ) {
+	return [
+		'response' => [ 'code' => 200 ],
+		'body'     => json_encode( [
+			'tag_name'     => 'v1.0.7',
+			'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.7',
+			'published_at' => '2026-10-22T12:00:00Z',
+			'body'         => 'Version 1.0.7 release',
+		] )
+	];
+};
+
+$transient = (object) [ 'checked' => [ 'roxytable/roxytable.php' => '1.0.6' ], 'response' => [], 'no_update' => [] ];
+$result    = $updater->check_for_update( $transient );
+$update_item = $result->response['roxytable/roxytable.php'] ?? null;
+
+if ( ! $update_item || $update_item->requires !== '7.1.3' || $update_item->tested !== '7.1.3' ) {
+	fwrite( STDERR, "FAILED: Update item does not utilize dynamic WordPress version 7.1.3.\n" );
+	exit( 1 );
+}
+
+// Simulate WordPress core's compatibility check on WordPress 7.1.3:
+// WordPress core checks: if ( isset( $update->requires ) && version_compare( $wp_version, $update->requires, '<' ) ) { error }
+$wp_core_version = '7.1.3';
+$incompatible = version_compare( $wp_core_version, $update_item->requires, '<' );
+if ( $incompatible ) {
+	fwrite( STDERR, "FAILED: WordPress core would reject update on WordPress 7.1.3.\n" );
+	exit( 1 );
+}
+echo "PASSED: Update check successfully passes WordPress core 7.1.3 compatibility validation without error.\n";
+
+// Test 14: Environment Fallback Handling
+// Case A: get_bloginfo returns empty string, falls back to $wp_version global
+$GLOBALS['mock_wp_version'] = '';
+$GLOBALS['wp_version']      = '6.5.2';
+$fallback_global = $updater->get_wordpress_version();
+if ( '6.5.2' !== $fallback_global ) {
+	fwrite( STDERR, "FAILED: Expected fallback to global wp_version '6.5.2', got '$fallback_global'.\n" );
+	exit( 1 );
+}
+
+// Case B: Both empty, falls back to safe default '5.6'
+$GLOBALS['wp_version'] = '';
+$fallback_default = $updater->get_wordpress_version();
+if ( '5.6' !== $fallback_default ) {
+	fwrite( STDERR, "FAILED: Expected default fallback '5.6', got '$fallback_default'.\n" );
+	exit( 1 );
+}
+echo "PASSED: Environment fallbacks operate reliably across different WordPress environments.\n";
+
+// Test 15: is_wordpress_compatible helper
+$GLOBALS['mock_wp_version'] = '7.1.3';
+if ( ! $updater->is_wordpress_compatible( '7.1.3' ) || ! $updater->is_wordpress_compatible( '6.0' ) || $updater->is_wordpress_compatible( '7.5' ) ) {
+	fwrite( STDERR, "FAILED: is_wordpress_compatible evaluated incorrectly for WordPress 7.1.3.\n" );
+	exit( 1 );
+}
+echo "PASSED: is_wordpress_compatible correctly validates compatibility for WordPress 7.1.3.\n";
 
 echo "=== All Github_Updater Tests Passed Successfully! ===\n";

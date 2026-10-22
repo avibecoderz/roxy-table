@@ -9,6 +9,7 @@ All notable changes to the RoxyTable WordPress plugin will be documented in this
 ### Added & Enhanced
 - **Table Options & Frontend Features Panel**: Integrated Section 2 (Parse Options) and Section 3 (Frontend Features) into the table edit screen (`edit.php`) with full setting persistence, linked directly from the All Tables edit action.
 - **Collapsible State Management**: Added `#rt-toggle-options-btn` with smooth show/hide state management, ARIA accessibility attributes, and table-scoped session persistence.
+- **Dynamic WordPress Version Detection**: Replaced hardcoded `'7.4'` WordPress version requirement in update payloads with dynamic version detection via `get_bloginfo('version')`, preventing false compatibility rejections on WordPress 7.1.3.
 - **Security & Defense-in-Depth**: Hardened view-level authorization (`current_user_can('manage_options')`), multi-source CSRF nonce fallback, strict boolean casting on all options, and resilient client-side response parsing.
 
 ## [1.0.5] - 2026-09-10

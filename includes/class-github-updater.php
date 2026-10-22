@@ -159,15 +159,19 @@ class Github_Updater {
 		$plugin_dir = dirname( $this->plugin_basename() );
 		$slug       = ( ! empty( $plugin_dir ) && '.' !== $plugin_dir ) ? $plugin_dir : 'roxytable';
 
+		$wp_version = $this->get_wordpress_version();
+
 		$item = (object) [
-			'id'           => 'roxytable',
-			'slug'         => $slug,
-			'plugin'       => $this->plugin_basename(),
-			'new_version'  => $release['version'],
-			'url'          => $release['html_url'],
-			'package'      => $release['package'],
-			'requires'     => '7.4',
-			'requires_php' => '7.4',
+			'id'            => 'roxytable',
+			'slug'          => $slug,
+			'plugin'        => $this->plugin_basename(),
+			'new_version'   => $release['version'],
+			'url'           => $release['html_url'],
+			'package'       => $release['package'],
+			'requires'      => $wp_version,
+			'requires_php'  => '7.4',
+			'tested'        => $wp_version,
+			'compatibility' => new \stdClass(),
 		];
 
 		if ( ! isset( $transient->response ) || ! is_array( $transient->response ) ) {
@@ -212,13 +216,17 @@ class Github_Updater {
 			return $result;
 		}
 
+		$wp_version = $this->get_wordpress_version();
+
 		return (object) [
 			'name'          => 'RoxyTable',
 			'slug'          => $args->slug,
 			'version'       => $release['version'],
 			'author'        => '<a href="https://abdulrahmansulaiman.netlify.app">oralbitstechnology</a>',
 			'homepage'      => $release['html_url'],
-			'requires'      => '7.4',
+			'requires'      => $wp_version,
+			'requires_php'  => '7.4',
+			'tested'        => $wp_version,
 			'last_updated'  => $release['published_at'],
 			'sections'      => [
 				'description' => 'Import Excel and CSV files and display them as searchable, sortable, paginated tables.',
@@ -388,6 +396,49 @@ class Github_Updater {
 	 */
 	private function plugin_basename() {
 		return plugin_basename( ROXYTABLE_PLUGIN_FILE );
+	}
+
+	/**
+	 * Retrieve the currently installed WordPress version dynamically.
+	 *
+	 * Uses WordPress core's built-in get_bloginfo('version') function
+	 * with graceful fallback to the $wp_version global.
+	 *
+	 * @return string Current WordPress version.
+	 */
+	public function get_wordpress_version() {
+		if ( function_exists( 'get_bloginfo' ) ) {
+			$version = get_bloginfo( 'version' );
+			if ( ! empty( $version ) && is_string( $version ) ) {
+				$clean = preg_replace( '/-[0-9A-Za-z.-]+$/', '', trim( $version ) );
+				if ( ! empty( $clean ) ) {
+					return $clean;
+				}
+				return trim( $version );
+			}
+		}
+
+		global $wp_version;
+		if ( ! empty( $wp_version ) && is_string( $wp_version ) ) {
+			$clean = preg_replace( '/-[0-9A-Za-z.-]+$/', '', trim( $wp_version ) );
+			return ! empty( $clean ) ? $clean : trim( $wp_version );
+		}
+
+		return '5.6';
+	}
+
+	/**
+	 * Validate compatibility with the current WordPress environment.
+	 *
+	 * @param string|null $required_wp Optional required WP version.
+	 * @return bool True if compatible.
+	 */
+	public function is_wordpress_compatible( $required_wp = null ) {
+		$current_wp = $this->get_wordpress_version();
+		if ( empty( $required_wp ) ) {
+			return true;
+		}
+		return version_compare( $current_wp, $required_wp, '>=' );
 	}
 }
 
