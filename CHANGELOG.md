@@ -4,6 +4,8 @@ All notable changes to the RoxyTable WordPress plugin will be documented in this
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-10-22
+
 ### Added & Enhanced
 - **Table Options & Frontend Features Panel**: Integrated Section 2 (Parse Options) and Section 3 (Frontend Features) into the table edit screen (`edit.php`) with full setting persistence, linked directly from the All Tables edit action.
 - **Collapsible State Management**: Added `#rt-toggle-options-btn` with smooth show/hide state management, ARIA accessibility attributes, and table-scoped session persistence.

@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	define( 'ABSPATH', dirname( __DIR__ ) . '/' );
 }
 if ( ! defined( 'ROXYTABLE_VERSION' ) ) {
-	define( 'ROXYTABLE_VERSION', '1.0.5' );
+	define( 'ROXYTABLE_VERSION', '1.0.6' );
 }
 if ( ! defined( 'ROXYTABLE_PLUGIN_FILE' ) ) {
 	define( 'ROXYTABLE_PLUGIN_FILE', dirname( __DIR__ ) . '/roxytable.php' );
@@ -64,10 +64,10 @@ function wp_remote_get( $url, $args = [] ) {
 	return [
 		'response' => [ 'code' => 200 ],
 		'body'     => json_encode( [
-			'tag_name'     => 'v1.0.5',
-			'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.5',
-			'published_at' => '2026-09-10T12:00:00Z',
-			'body'         => 'New features and bug fixes in 1.0.5',
+			'tag_name'     => 'v1.0.6',
+			'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.6',
+			'published_at' => '2026-10-22T12:00:00Z',
+			'body'         => 'New features and bug fixes in 1.0.6',
 		] ),
 	];
 }
@@ -141,25 +141,25 @@ $GLOBALS['wp_remote_get_mock'] = function ( $url, $args ) {
 	return [
 		'response' => [ 'code' => 200 ],
 		'body'     => json_encode( [
-			'tag_name'     => 'v1.0.5', // Same as ROXYTABLE_VERSION
-			'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.5',
-			'published_at' => '2026-09-10T12:00:00Z',
-			'body'         => 'Version 1.0.5 release',
+			'tag_name'     => 'v1.0.6', // Same as ROXYTABLE_VERSION
+			'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.6',
+			'published_at' => '2026-10-22T12:00:00Z',
+			'body'         => 'Version 1.0.6 release',
 		] ),
 	];
 };
 
-$transient = (object) [ 'checked' => [ 'roxytable/roxytable.php' => '1.0.5' ], 'response' => [], 'no_update' => [] ];
+$transient = (object) [ 'checked' => [ 'roxytable/roxytable.php' => '1.0.6' ], 'response' => [], 'no_update' => [] ];
 $result    = $updater->check_for_update( $transient );
 if ( ! empty( $result->response['roxytable/roxytable.php'] ) ) {
-	fwrite( STDERR, "FAILED: Update incorrectly reported for equal version 1.0.5.\n" );
+	fwrite( STDERR, "FAILED: Update incorrectly reported for equal version 1.0.6.\n" );
 	exit( 1 );
 }
 if ( empty( $result->no_update['roxytable/roxytable.php'] ) ) {
-	fwrite( STDERR, "FAILED: no_update transient item not populated for equal version 1.0.5.\n" );
+	fwrite( STDERR, "FAILED: no_update transient item not populated for equal version 1.0.6.\n" );
 	exit( 1 );
 }
-echo "PASSED: Equal version 1.0.5 correctly ignored and recorded in no_update.\n";
+echo "PASSED: Equal version 1.0.6 correctly ignored and recorded in no_update.\n";
 
 // Test 4: Version Comparison (Update triggered when release version > current)
 delete_site_transient( 'roxytable_github_release' );
@@ -169,26 +169,27 @@ $GLOBALS['wp_remote_get_mock'] = function ( $url, $args ) use ( &$last_request_h
 	return [
 		'response' => [ 'code' => 200 ],
 		'body'     => json_encode( [
-			'tag_name'     => 'v1.0.6', // Higher than 1.0.5
-			'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.6',
-			'published_at' => '2026-09-10T12:00:00Z',
-			'body'         => 'Version 1.0.6 release notes',
+			'tag_name'     => 'v1.0.7', // Higher than 1.0.6
+			'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.7',
+			'published_at' => '2026-10-22T12:00:00Z',
+			'body'         => 'Version 1.0.7 release notes',
 		] ),
 	];
 };
 
 $result = $updater->check_for_update( $transient );
 if ( empty( $result->response['roxytable/roxytable.php'] ) ) {
-	fwrite( STDERR, "FAILED: Update not reported for higher version 1.0.6.\n" );
+	fwrite( STDERR, "FAILED: Update not reported for higher version 1.0.7.\n" );
 	exit( 1 );
 }
+echo "PASSED: Higher version 1.0.7 successfully triggers update notice.\n";
 
 $update_item = $result->response['roxytable/roxytable.php'];
-if ( $update_item->new_version !== '1.0.6' ) {
-	fwrite( STDERR, "FAILED: new_version expected '1.0.6', got '{$update_item->new_version}'.\n" );
+if ( $update_item->new_version !== '1.0.7' ) {
+	fwrite( STDERR, "FAILED: new_version expected '1.0.7', got '{$update_item->new_version}'.\n" );
 	exit( 1 );
 }
-echo "PASSED: Higher version 1.0.6 successfully triggers update notice.\n";
+echo "PASSED: Higher version 1.0.7 successfully triggers update notice.\n";
 
 // Test 5: Check User-Agent and Authorization Headers
 if ( empty( $last_request_headers['User-Agent'] ) || strpos( $last_request_headers['User-Agent'], 'RoxyTable-WordPress-Plugin/' ) === false ) {
@@ -217,7 +218,7 @@ echo "PASSED: Secure authorization token injected into package download request.
 // Test 7: Plugin Information modal payload
 $args = (object) [ 'slug' => 'roxytable' ];
 $info = $updater->plugin_information( false, 'plugin_information', $args );
-if ( ! is_object( $info ) || $info->version !== '1.0.6' || empty( $info->sections['changelog'] ) ) {
+if ( ! is_object( $info ) || $info->version !== '1.0.7' || empty( $info->sections['changelog'] ) ) {
 	fwrite( STDERR, "FAILED: plugin_information response incomplete or incorrect.\n" );
 	exit( 1 );
 }
