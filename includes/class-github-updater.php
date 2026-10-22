@@ -87,7 +87,7 @@ class Github_Updater {
 	 * @return array
 	 */
 	public function authorize_download_request( $args, $url ) {
-		if ( false !== strpos( $url, 'github.com/' . self::REPOSITORY ) ) {
+		if ( false !== strpos( $url, 'github.com/' . self::REPOSITORY ) || false !== strpos( $url, 'codeload.github.com/' . self::REPOSITORY ) ) {
 			$token = defined( 'ROXYTABLE_GITHUB_TOKEN' ) ? ROXYTABLE_GITHUB_TOKEN : apply_filters( 'roxytable_github_token', '' );
 			$token = sanitize_text_field( trim( (string) $token ) );
 
@@ -156,9 +156,12 @@ class Github_Updater {
 			return $transient;
 		}
 
+		$plugin_dir = dirname( $this->plugin_basename() );
+		$slug       = ( ! empty( $plugin_dir ) && '.' !== $plugin_dir ) ? $plugin_dir : 'roxytable';
+
 		$item = (object) [
 			'id'           => 'roxytable',
-			'slug'         => 'roxytable',
+			'slug'         => $slug,
 			'plugin'       => $this->plugin_basename(),
 			'new_version'  => $release['version'],
 			'url'          => $release['html_url'],
@@ -194,7 +197,13 @@ class Github_Updater {
 	 * @return false|object
 	 */
 	public function plugin_information( $result, $action, $args ) {
-		if ( 'plugin_information' !== $action || empty( $args->slug ) || 'roxytable' !== $args->slug ) {
+		$plugin_dir  = dirname( $this->plugin_basename() );
+		$valid_slugs = [ 'roxytable', 'roxy-table' ];
+		if ( ! empty( $plugin_dir ) && '.' !== $plugin_dir ) {
+			$valid_slugs[] = $plugin_dir;
+		}
+
+		if ( 'plugin_information' !== $action || empty( $args->slug ) || ! in_array( $args->slug, $valid_slugs, true ) ) {
 			return $result;
 		}
 
@@ -205,7 +214,7 @@ class Github_Updater {
 
 		return (object) [
 			'name'          => 'RoxyTable',
-			'slug'          => 'roxytable',
+			'slug'          => $args->slug,
 			'version'       => $release['version'],
 			'author'        => '<a href="https://abdulrahmansulaiman.netlify.app">oralbitstechnology</a>',
 			'homepage'      => $release['html_url'],
@@ -238,7 +247,13 @@ class Github_Updater {
 			return new \WP_Error( 'roxytable_update_filesystem', __( 'Could not access the WordPress filesystem for the RoxyTable update.', 'roxytable' ) );
 		}
 
-		$target = trailingslashit( $remote_source ) . 'roxytable';
+		$plugin_dir  = dirname( $hook_extra['plugin'] );
+		$target_name = ( ! empty( $plugin_dir ) && '.' !== $plugin_dir ) ? $plugin_dir : dirname( $this->plugin_basename() );
+		if ( empty( $target_name ) || '.' === $target_name ) {
+			$target_name = 'roxy-table';
+		}
+
+		$target = trailingslashit( $remote_source ) . $target_name;
 		if ( trailingslashit( $source ) === trailingslashit( $target ) ) {
 			return $source;
 		}
@@ -263,12 +278,13 @@ class Github_Updater {
 	 * @return array|false
 	 */
 	private function get_latest_release() {
+		$version = defined( 'ROXYTABLE_VERSION' ) ? ROXYTABLE_VERSION : '1.0.0';
+
 		$cached = get_site_transient( 'roxytable_github_release' );
-		if ( is_array( $cached ) && ! empty( $cached['version'] ) ) {
+		if ( is_array( $cached ) && ! empty( $cached['version'] ) && version_compare( $cached['version'], $version, '>' ) ) {
 			return $cached;
 		}
 
-		$version = defined( 'ROXYTABLE_VERSION' ) ? ROXYTABLE_VERSION : '1.0.0';
 		$headers = [
 			'Accept'     => 'application/vnd.github+json',
 			'User-Agent' => 'RoxyTable-WordPress-Plugin/' . $version,
@@ -280,6 +296,7 @@ class Github_Updater {
 			$headers['Authorization'] = 'Bearer ' . $token;
 		}
 
+		// First, try GitHub's /releases/latest endpoint.
 		$response = wp_remote_get(
 			self::API_URL,
 			[
@@ -288,31 +305,80 @@ class Github_Updater {
 			]
 		);
 
-		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
-			return false;
+		$release = false;
+		if ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) ) {
+			$data    = json_decode( wp_remote_retrieve_body( $response ), true );
+			$release = $this->parse_release_data( $data );
 		}
 
-		$data = json_decode( wp_remote_retrieve_body( $response ), true );
-		$tag  = isset( $data['tag_name'] ) ? ltrim( (string) $data['tag_name'], 'vV' ) : '';
-		if ( '' === $tag || ! preg_match( '/^\d+(?:\.\d+){1,3}(?:-[0-9A-Za-z.-]+)?$/', $tag ) ) {
-			return false;
+		// If /releases/latest returned no valid release, or a version not newer than the current version,
+		// query the full /releases list to find the highest non-draft, non-prerelease version.
+		if ( ! $release || version_compare( $release['version'], $version, '<=' ) ) {
+			$releases_response = wp_remote_get(
+				'https://api.github.com/repos/' . self::REPOSITORY . '/releases',
+				[
+					'timeout' => 10,
+					'headers' => $headers,
+				]
+			);
+
+			if ( ! is_wp_error( $releases_response ) && 200 === wp_remote_retrieve_response_code( $releases_response ) ) {
+				$releases_data = json_decode( wp_remote_retrieve_body( $releases_response ), true );
+				if ( is_array( $releases_data ) ) {
+					$highest_release = null;
+					foreach ( $releases_data as $item ) {
+						if ( ! empty( $item['draft'] ) || ! empty( $item['prerelease'] ) ) {
+							continue;
+						}
+						$parsed = $this->parse_release_data( $item );
+						if ( ! $parsed ) {
+							continue;
+						}
+						if ( null === $highest_release || version_compare( $parsed['version'], $highest_release['version'], '>' ) ) {
+							$highest_release = $parsed;
+						}
+					}
+					if ( $highest_release ) {
+						$release = $highest_release;
+					}
+				}
+			}
 		}
 
-		$release = [
-			'version'      => $tag,
-			'package'      => 'https://github.com/' . self::REPOSITORY . '/archive/refs/tags/' . rawurlencode( (string) $data['tag_name'] ) . '.zip',
-			'html_url'     => ! empty( $data['html_url'] ) ? esc_url_raw( $data['html_url'] ) : 'https://github.com/' . self::REPOSITORY,
-			'published_at' => ! empty( $data['published_at'] ) ? sanitize_text_field( $data['published_at'] ) : '',
-			'body'         => ! empty( $data['body'] ) ? (string) $data['body'] : '',
-		];
-
-		if ( '' === $release['package'] ) {
+		if ( ! $release ) {
 			return false;
 		}
 
 		$cache_duration = defined( 'HOUR_IN_SECONDS' ) ? 6 * HOUR_IN_SECONDS : 21600;
 		set_site_transient( 'roxytable_github_release', $release, $cache_duration );
 		return $release;
+	}
+
+	/**
+	 * Parse raw GitHub release item into normalized release structure.
+	 *
+	 * @param mixed $data Raw release data from GitHub API.
+	 * @return array|false
+	 */
+	private function parse_release_data( $data ) {
+		if ( ! is_array( $data ) || empty( $data['tag_name'] ) ) {
+			return false;
+		}
+
+		$tag = ltrim( (string) $data['tag_name'], 'vV' );
+		if ( '' === $tag || ! preg_match( '/^\d+(?:\.\d+){1,3}(?:-[0-9A-Za-z.-]+)?$/', $tag ) ) {
+			return false;
+		}
+
+		$package_url = 'https://github.com/' . self::REPOSITORY . '/archive/refs/tags/' . rawurlencode( (string) $data['tag_name'] ) . '.zip';
+
+		return [
+			'version'      => $tag,
+			'package'      => $package_url,
+			'html_url'     => ! empty( $data['html_url'] ) ? esc_url_raw( $data['html_url'] ) : 'https://github.com/' . self::REPOSITORY,
+			'published_at' => ! empty( $data['published_at'] ) ? sanitize_text_field( $data['published_at'] ) : '',
+			'body'         => ! empty( $data['body'] ) ? (string) $data['body'] : '',
+		];
 	}
 
 	/**

@@ -232,4 +232,83 @@ if ( get_site_transient( 'roxytable_github_release' ) !== false ) {
 }
 echo "PASSED: Cache purge successfully cleared site transient.\n";
 
+// Test 9: fix_extracted_directory dynamically matches plugin folder name
+global $wp_filesystem;
+$wp_filesystem = new class {
+	public $deleted = [];
+	public $moved = [];
+	public function exists( $path ) { return true; }
+	public function delete( $path, $recursive = false ) { $this->deleted[] = $path; return true; }
+	public function move( $source, $target, $overwrite = false ) { $this->moved[] = [ 'from' => $source, 'to' => $target ]; return true; }
+};
+
+$source = '/tmp/upgrade/roxy-table-1.0.6';
+$remote_source = '/tmp/upgrade/';
+
+// Case A: Plugin installed in 'roxytable/roxytable.php'
+$hook_extra = [ 'plugin' => 'roxytable/roxytable.php' ];
+$res = $updater->fix_extracted_directory( $source, $remote_source, null, $hook_extra );
+if ( rtrim( $res, '/\\' ) !== '/tmp/upgrade/roxytable' ) {
+	fwrite( STDERR, "FAILED: Expected target directory to be '/tmp/upgrade/roxytable', got '$res'.\n" );
+	exit( 1 );
+}
+echo "PASSED: Directory extraction correctly preserved 'roxytable' folder name.\n";
+
+// Test 10: Fallback to /releases when /releases/latest is not the latest release
+delete_site_transient( 'roxytable_github_release' );
+$GLOBALS['wp_remote_get_mock'] = function( $url, $args ) {
+	if ( strpos( $url, '/releases/latest' ) !== false ) {
+		return [
+			'response' => [ 'code' => 200 ],
+			'body'     => json_encode( [
+				'tag_name'     => 'v1.0.4',
+				'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.4',
+				'published_at' => '2026-09-10T12:00:00Z',
+				'body'         => 'Older release',
+			] )
+		];
+	}
+	if ( strpos( $url, '/releases' ) !== false ) {
+		return [
+			'response' => [ 'code' => 200 ],
+			'body'     => json_encode( [
+				[
+					'tag_name'     => 'v1.0.7',
+					'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.7',
+					'published_at' => '2026-10-22T12:00:00Z',
+					'body'         => 'v1.0.7 release',
+					'draft'        => false,
+					'prerelease'   => false,
+				],
+				[
+					'tag_name'     => 'v1.0.4',
+					'html_url'     => 'https://github.com/avibecoderz/roxy-table/releases/tag/v1.0.4',
+					'published_at' => '2026-09-10T12:00:00Z',
+					'body'         => 'v1.0.4 release',
+					'draft'        => false,
+					'prerelease'   => false,
+				]
+			] )
+		];
+	}
+	return [ 'response' => [ 'code' => 404 ], 'body' => '' ];
+};
+
+$transient = (object) [ 'checked' => [ 'roxytable/roxytable.php' => '1.0.6' ], 'response' => [], 'no_update' => [] ];
+$result = $updater->check_for_update( $transient );
+if ( empty( $result->response['roxytable/roxytable.php'] ) || $result->response['roxytable/roxytable.php']->new_version !== '1.0.7' ) {
+	fwrite( STDERR, "FAILED: Fallback to /releases failed to detect v1.0.7 when /releases/latest was stuck.\n" );
+	exit( 1 );
+}
+echo "PASSED: Fallback to /releases successfully detected highest version when /releases/latest was desynced.\n";
+
+// Test 11: Plugin Information accepts 'roxy-table' slug as well
+$args_dashed = (object) [ 'slug' => 'roxy-table' ];
+$info_dashed = $updater->plugin_information( false, 'plugin_information', $args_dashed );
+if ( ! is_object( $info_dashed ) || empty( $info_dashed->version ) ) {
+	fwrite( STDERR, "FAILED: plugin_information rejected 'roxy-table' slug.\n" );
+	exit( 1 );
+}
+echo "PASSED: plugin_information accepts both 'roxy-table' and 'roxytable' slugs.\n";
+
 echo "=== All Github_Updater Tests Passed Successfully! ===\n";
