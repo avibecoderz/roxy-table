@@ -347,8 +347,14 @@ $stored       = \RoxyTable\Includes\Admin\Import_Handler::get_stored_data();
 
 						<div class="rt-field-group" style="max-width: 200px;">
 							<label class="rt-label" for="rt-rows-per-page"><?php _e( 'Rows per page', 'roxytable' ); ?></label>
-							<input type="number" id="rt-rows-per-page" name="rt_rows_per_page" class="rt-field"
-								min="5" max="500" value="25" />
+							<select id="rt-rows-per-page" name="rt_rows_per_page" class="rt-field">
+								<option value="25">25</option>
+								<option value="50">50</option>
+								<option value="100">100</option>
+								<option value="250">250</option>
+								<option value="500">500</option>
+								<option value="0"><?php _e( 'All rows', 'roxytable' ); ?></option>
+							</select>
 						</div>
 					</div>
 

@@ -43,6 +43,8 @@ class RoxyTable {
 	 * Initialize the plugin.
 	 */
 	public function init() {
+		Database::maybe_upgrade();
+
 		if ( is_admin() ) {
 			new \RoxyTable\Includes\Admin\Admin_Menu();
 		}

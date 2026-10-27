@@ -77,6 +77,46 @@ class Database {
 	}
 
 	/**
+	 * Create tables when the schema is outdated or a required table is missing.
+	 */
+	public static function maybe_upgrade() {
+		global $wpdb;
+
+		$prefix = self::get_prefix();
+		$tables = [
+			$prefix . 'roxy_tables',
+			$prefix . 'roxy_columns',
+			$prefix . 'roxy_rows',
+		];
+		$needs_upgrade = version_compare( (string) get_option( 'roxytable_db_version', '0' ), ROXYTABLE_VERSION, '<' );
+
+		if ( ! $needs_upgrade ) {
+			foreach ( $tables as $table ) {
+				$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+				if ( $table !== $found ) {
+					$needs_upgrade = true;
+					break;
+				}
+			}
+		}
+
+		if ( ! $needs_upgrade ) {
+			return;
+		}
+
+		self::create_tables();
+
+		foreach ( $tables as $table ) {
+			$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
+			if ( $table !== $found ) {
+				return;
+			}
+		}
+
+		update_option( 'roxytable_db_version', ROXYTABLE_VERSION );
+	}
+
+	/**
 	 * Drop all custom tables.
 	 */
 	public static function drop_tables() {

@@ -54,6 +54,21 @@
         var settings = {};
         try { settings = JSON.parse(embed.getAttribute('data-settings') || '{}'); } catch(e){}
 
+        function featureEnabled(key, defaultValue){
+            if (!Object.prototype.hasOwnProperty.call(settings, key)) return defaultValue;
+            return settings[key] !== false && settings[key] !== 0 && settings[key] !== '0';
+        }
+
+        var searchEnabled = featureEnabled('search', true);
+        var sheetFilteringEnabled = featureEnabled('sheet_filtering', true);
+        var tableFilteringEnabled = featureEnabled('table_filtering', true);
+        var sortingEnabled = featureEnabled('sort', true);
+        var configuredRowsPerPage = parseInt(settings.rows_per_page, 10);
+        if (isNaN(configuredRowsPerPage) || configuredRowsPerPage < 0) configuredRowsPerPage = 25;
+        var paginationEnabled = featureEnabled('pagination', true) && configuredRowsPerPage !== 0;
+        var visibilityEnabled = featureEnabled('visibility', true);
+        var exportEnabled = featureEnabled('export', false);
+
         var data = tableToData(table);
         if (!data.headers.length) return;
 
@@ -87,33 +102,15 @@
             });
         }
 
-        // Add Sort arrows to headers matching reference UI
-        Array.from(table.querySelectorAll('thead th')).forEach(function(th, idx){
-            if (!th.querySelector('.rt-sort-icon')) {
-                var sortSpan = document.createElement('span');
-                sortSpan.className = 'rt-sort-icon';
-                sortSpan.innerHTML = '▲<br/>▼';
-                th.appendChild(sortSpan);
-            }
-        });
-
-        // Setup Sheet Switcher Tabs
-        if (sheets && sheets.length > 1) {
-            var tabsContainer = document.createElement('div');
-            tabsContainer.className = 'rt-sheet-tabs';
-            sheets.forEach(function(sh, sIdx){
-                var tab = document.createElement('button');
-                tab.type = 'button';
-                tab.className = 'rt-sheet-tab' + (sIdx === 0 ? ' active' : '');
-                tab.textContent = sh.name || ('Sheet ' + (sIdx+1));
-                tab.addEventListener('click', function(){
-                    Array.from(tabsContainer.children).forEach(function(t){ t.classList.remove('active'); });
-                    tab.classList.add('active');
-                    resetAllFilters();
-                });
-                tabsContainer.appendChild(tab);
+        if (sortingEnabled) {
+            Array.from(table.querySelectorAll('thead th')).forEach(function(th){
+                if (!th.querySelector('.rt-sort-icon')) {
+                    var sortSpan = document.createElement('span');
+                    sortSpan.className = 'rt-sort-icon';
+                    sortSpan.innerHTML = '▲<br/>▼';
+                    th.appendChild(sortSpan);
+                }
             });
-            container.insertBefore(tabsContainer, table);
         }
 
         // Toolbar Container (Matching Reference UI Layout)
@@ -128,16 +125,31 @@
 
         // Categorical Filter Selects (Left side: e.g. Year ▾, Country ▾)
         var catSelects = [];
-        stats.forEach(function(st){
-            if (!isSerialCol(st.name) && st.categories && st.categories.length > 1 && st.categories.length <= 300) {
+        var filterColumnsConfigured = Array.isArray(settings.filter_columns);
+        var selectedFilterColumns = filterColumnsConfigured ? settings.filter_columns.map(function(index){ return parseInt(index, 10); }) : [];
+        if (tableFilteringEnabled) {
+            var filterStats = {};
+            stats.forEach(function(st){ filterStats[parseInt(st.index, 10)] = st; });
+            var columnsToFilter = filterColumnsConfigured
+                ? selectedFilterColumns
+                : stats.filter(function(st){
+                    return !isSerialCol(st.name) && st.categories && st.categories.length > 1 && st.categories.length <= 300;
+                }).map(function(st){ return parseInt(st.index, 10); });
+
+            columnsToFilter.forEach(function(colIndex){
+                if (colIndex < 0 || colIndex >= data.headers.length) return;
+                var st = filterStats[colIndex] || { index: colIndex, name: data.headers[colIndex] };
+                var categories = filterColumnsConfigured
+                    ? Array.from(new Set(data.rows.map(function(row){ return row[colIndex] || ''; }).filter(function(value){ return value !== ''; }))).sort(function(a, b){ return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }); })
+                    : (st.categories || []);
                 var sel = createControl('select', { class: 'rt-filter-select' });
-                sel.dataset.col = String(st.index);
+                sel.dataset.col = String(colIndex);
                 var def = document.createElement('option');
                 def.value = '';
-                def.textContent = st.name; // Display column name as default
+                def.textContent = st.name || data.headers[colIndex];
                 sel.appendChild(def);
 
-                st.categories.forEach(function(cVal){
+                categories.forEach(function(cVal){
                     var opt = document.createElement('option');
                     opt.value = cVal;
                     opt.textContent = cVal;
@@ -147,8 +159,8 @@
                 sel.addEventListener('change', function(){ triggerFilter(); });
                 toolbarLeft.appendChild(sel);
                 catSelects.push(sel);
-            }
-        });
+            });
+        }
 
         // Search Input (Right side: Search: [ input ])
         var searchContainer = document.createElement('div');
@@ -156,29 +168,60 @@
         var searchLabel = document.createElement('label');
         searchLabel.textContent = 'Search:';
         var search = createControl('input', { type: 'search', placeholder: '' });
-        searchContainer.appendChild(searchLabel);
-        searchContainer.appendChild(search);
-        toolbarRight.appendChild(searchContainer);
+        if (searchEnabled) {
+            searchContainer.appendChild(searchLabel);
+            searchContainer.appendChild(search);
+            toolbarRight.appendChild(searchContainer);
+        }
 
         // Action Buttons (Rule Builder, Export, Reset)
         var ruleToggleBtn = createControl('button', { type: 'button' });
         ruleToggleBtn.textContent = 'Rules ▾';
         ruleToggleBtn.className = 'roxytable-btn roxytable-btn-secondary';
-        toolbarRight.appendChild(ruleToggleBtn);
+        if (sheetFilteringEnabled) toolbarRight.appendChild(ruleToggleBtn);
 
         var exportBtn = createControl('button', { type: 'button' });
         exportBtn.textContent = (window.roxyTableData && window.roxyTableData.i18n.export) || 'Export CSV';
         exportBtn.className = 'roxytable-btn roxytable-btn-secondary';
-        toolbarRight.appendChild(exportBtn);
+        if (exportEnabled) toolbarRight.appendChild(exportBtn);
 
         var resetBtn = createControl('button', { type: 'button' });
         resetBtn.textContent = (window.roxyTableData && window.roxyTableData.i18n.reset) || 'Reset';
         resetBtn.className = 'roxytable-btn roxytable-btn-secondary';
         resetBtn.addEventListener('click', function(){ resetAllFilters(); });
-        toolbarRight.appendChild(resetBtn);
+        if (searchEnabled || tableFilteringEnabled || sheetFilteringEnabled) toolbarRight.appendChild(resetBtn);
+
+        var visibilityPanel = null;
+        var visibilityChecks = [];
+        if (visibilityEnabled) {
+            var visibilityBtn = createControl('button', { type: 'button' });
+            visibilityBtn.textContent = 'Columns';
+            visibilityBtn.className = 'roxytable-btn roxytable-btn-secondary';
+            visibilityBtn.setAttribute('aria-expanded', 'false');
+            visibilityPanel = document.createElement('div');
+            visibilityPanel.className = 'rt-column-visibility';
+            visibilityPanel.style.display = 'none';
+            data.headers.forEach(function(header, idx){
+                var label = document.createElement('label');
+                var checkbox = createControl('input', { type: 'checkbox', checked: 'checked' });
+                checkbox.checked = true;
+                checkbox.addEventListener('change', function(){ applyColumnVisibility(); });
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(' ' + header));
+                visibilityPanel.appendChild(label);
+                visibilityChecks[idx] = checkbox;
+            });
+            visibilityBtn.addEventListener('click', function(){
+                var isOpen = visibilityPanel.style.display !== 'none';
+                visibilityPanel.style.display = isOpen ? 'none' : 'flex';
+                visibilityBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+            });
+            toolbarRight.appendChild(visibilityBtn);
+        }
 
         controls.appendChild(toolbarLeft);
         controls.appendChild(toolbarRight);
+        if (visibilityPanel) container.insertBefore(visibilityPanel, table);
 
         // Active Filters Bar
         var activeBar = document.createElement('div');
@@ -212,7 +255,7 @@
         addRuleBtn.addEventListener('click', function(){ addRuleRow(); });
         ruleCard.appendChild(addRuleBtn);
 
-        ruleToggleBtn.addEventListener('click', function(){
+        if (sheetFilteringEnabled) ruleToggleBtn.addEventListener('click', function(){
             ruleCard.style.display = ruleCard.style.display === 'none' ? 'block' : 'none';
         });
 
@@ -236,7 +279,7 @@
 
         var filtered = allRows.slice();
         var currentPage = 1;
-        var rowsPerPage = 25;
+        var rowsPerPage = configuredRowsPerPage;
         var sortIndex = -1; var sortDir = 1;
 
         function addRuleRow(){
@@ -331,7 +374,7 @@
             activeBar.innerHTML = '';
             var activeCount = 0;
 
-            if (search.value.trim() !== '') {
+            if (searchEnabled && search.value.trim() !== '') {
                 activeCount++;
                 var badge = createFilterBadge('Search: ' + search.value.trim(), function(){
                     search.value = '';
@@ -352,7 +395,7 @@
                 }
             });
 
-            var rules = getActiveSheetRules();
+            var rules = sheetFilteringEnabled ? getActiveSheetRules() : [];
             if (rules.length > 0) {
                 activeCount++;
                 var badge = createFilterBadge('Sheet Rules (' + rules.length + ')', function(){
@@ -398,8 +441,8 @@
         }
 
         function applyClientFilters(){
-            var q = search.value.trim().toLowerCase();
-            var rules = getActiveSheetRules();
+            var q = searchEnabled ? search.value.trim().toLowerCase() : '';
+            var rules = sheetFilteringEnabled ? getActiveSheetRules() : [];
             var isOr = matchSelect.value === 'or';
 
             filtered = allRows.filter(function(tr){
@@ -412,7 +455,7 @@
                 }
 
                 // 2. Categorical dropdowns
-                var catPass = catSelects.every(function(s){
+                var catPass = !tableFilteringEnabled || catSelects.every(function(s){
                     if (s.value === '') return true;
                     var colI = parseInt(s.dataset.col, 10);
                     return cells[colI] === s.value;
@@ -512,6 +555,7 @@
 
         function renderAjaxData(respData){
             tbody.innerHTML = '';
+            allRows = [];
             (respData.rows || []).forEach(function(rObj){
                 var tr = document.createElement('tr');
                 tr.style.borderBottom = '1px solid #f1f5f9';
@@ -524,36 +568,68 @@
                     td.innerHTML = cleanText;
                     tr.appendChild(td);
                 });
-                tbody.appendChild(tr);
+                allRows.push(tr);
             });
-
-            renderAjaxPager(respData.total_matched || 0, respData.total_rows || 0);
-        }
-
-        function renderAjaxPager(matchedCount, totalCount){
-            pager.innerHTML = '';
-            var info = document.createElement('div');
-            info.style.color = '#666';
-            info.style.fontSize = '0.9rem';
-            info.textContent = matchedCount > 0 ? ('Showing 1–' + matchedCount + ' of ' + matchedCount + ' (' + totalCount + ' total)') : ('Showing 0 of ' + totalCount + ' records');
-            pager.appendChild(info);
+            filtered = allRows.slice();
+            currentPage = 1;
+            renderPage();
         }
 
         function renderPage(){
             tbody.innerHTML = '';
-            filtered.forEach(function(r){ tbody.appendChild(r); });
+            var pageCount = paginationEnabled ? Math.max(1, Math.ceil(filtered.length / rowsPerPage)) : 1;
+            currentPage = Math.min(currentPage, pageCount);
+            var start = paginationEnabled ? (currentPage - 1) * rowsPerPage : 0;
+            var visibleRows = paginationEnabled ? filtered.slice(start, start + rowsPerPage) : filtered;
+            visibleRows.forEach(function(r){ tbody.appendChild(r); });
+            applyColumnVisibility();
             renderPager();
         }
 
         function renderPager(){
             pager.innerHTML = '';
+            pager.style.display = paginationEnabled ? 'flex' : 'none';
+            if (!paginationEnabled) return;
             var matched = filtered.length;
-            var total = allRows.length;
             var info = document.createElement('div');
             info.style.color = '#666';
             info.style.fontSize = '0.9rem';
-            info.textContent = matched > 0 ? ('Showing 1–' + matched + ' of ' + matched + ' (' + total + ' total)') : ('Showing 0 of ' + total + ' records');
+            var start = matched ? (currentPage - 1) * rowsPerPage + 1 : 0;
+            var end = Math.min(currentPage * rowsPerPage, matched);
+            info.textContent = matched > 0 ? ('Showing ' + start + '–' + end + ' of ' + matched + ' (' + totalRowsCount + ' total)') : ('Showing 0 of ' + totalRowsCount + ' records');
             pager.appendChild(info);
+
+            var pageCount = Math.max(1, Math.ceil(matched / rowsPerPage));
+            if (pageCount > 1) {
+                var previous = createControl('button', { type: 'button' });
+                previous.textContent = 'Previous';
+                previous.disabled = currentPage <= 1;
+                previous.addEventListener('click', function(){ currentPage--; renderPage(); });
+                pager.appendChild(previous);
+
+                var pageStatus = document.createElement('span');
+                pageStatus.textContent = 'Page ' + currentPage + ' of ' + pageCount;
+                pager.appendChild(pageStatus);
+
+                var next = createControl('button', { type: 'button' });
+                next.textContent = 'Next';
+                next.disabled = currentPage >= pageCount;
+                next.addEventListener('click', function(){ currentPage++; renderPage(); });
+                pager.appendChild(next);
+            }
+        }
+
+        function applyColumnVisibility(){
+            if (!visibilityEnabled) return;
+            var headers = Array.from(table.querySelectorAll('thead th'));
+            headers.forEach(function(cell, idx){
+                cell.style.display = !visibilityChecks[idx] || visibilityChecks[idx].checked ? '' : 'none';
+            });
+            allRows.forEach(function(row){
+                Array.from(row.children).forEach(function(cell, idx){
+                    cell.style.display = !visibilityChecks[idx] || visibilityChecks[idx].checked ? '' : 'none';
+                });
+            });
         }
 
         function applySort(idx){
@@ -562,16 +638,16 @@
         }
 
         // Header sort handlers
-        Array.from(table.querySelectorAll('thead th')).forEach(function(th, idx){
+        if (sortingEnabled) Array.from(table.querySelectorAll('thead th')).forEach(function(th, idx){
             th.style.cursor = 'pointer';
             th.addEventListener('click', function(){ applySort(idx); });
         });
 
         // Search input
-        search.addEventListener('input', function(){ triggerFilter(); });
+        if (searchEnabled) search.addEventListener('input', function(){ triggerFilter(); });
 
         // Export CSV
-        exportBtn.addEventListener('click', function(){
+        if (exportEnabled) exportBtn.addEventListener('click', function(){
             var headers = data.headers;
             var rows = filtered.map(function(tr){ return Array.from(tr.children).map(textOf); });
             downloadCSV((document.title || 'table') + '.csv', headers, rows);

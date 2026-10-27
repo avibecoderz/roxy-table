@@ -197,6 +197,16 @@ class Admin_Menu {
 				$settings_partial['pagination']      = ! empty( $_POST['rt_feat_pagination'] );
 				$settings_partial['visibility']      = ! empty( $_POST['rt_feat_visibility'] );
 				$settings_partial['export']          = ! empty( $_POST['rt_feat_export'] );
+				$rows_per_page = intval( $_POST['rt_rows_per_page'] ?? 25 );
+				$settings_partial['rows_per_page'] = 0 === $rows_per_page ? 0 : min( 500, max( 5, $rows_per_page ) );
+				if ( isset( $_POST['rt_filter_columns_configured'] ) ) {
+					$column_count = count( \RoxyTable\Includes\Admin\Table_Repository::get_columns( $table_id ) );
+					$filter_columns = isset( $_POST['rt_filter_columns'] ) ? array_map( 'absint', (array) wp_unslash( $_POST['rt_filter_columns'] ) ) : [];
+					$filter_columns = array_values( array_unique( array_filter( $filter_columns, static function( $index ) use ( $column_count ) {
+						return $index < $column_count;
+					} ) ) );
+					$settings_partial['filter_columns'] = $filter_columns;
+				}
 
 				$settings_partial['parse_options'] = [
 					'first_row_headers' => ! empty( $_POST['rt_first_row_headers'] ),
@@ -210,7 +220,7 @@ class Admin_Menu {
 				\RoxyTable\Includes\Admin\Table_Repository::update_table_settings( $table_id, $settings_partial );
 			}
 
-			wp_safe_redirect( admin_url( 'admin.php?page=roxytable-tables' ) );
+			wp_safe_redirect( admin_url( 'admin.php?page=roxytable-tables&action=edit&id=' . $table_id . '&settings_saved=1' ) );
 			exit;
 		}
 
@@ -274,7 +284,8 @@ class Admin_Menu {
 		$description  = sanitize_textarea_field( $_POST['rt_table_description'] ?? '' );
 		$status       = in_array( $_POST['rt_table_status'] ?? 'draft', [ 'draft', 'published' ], true )
 			? $_POST['rt_table_status'] : 'draft';
-		$rows_per_page   = min( 500, max( 5, intval( $_POST['rt_rows_per_page'] ?? 25 ) ) );
+		$rows_per_page   = intval( $_POST['rt_rows_per_page'] ?? 25 );
+		$rows_per_page   = 0 === $rows_per_page ? 0 : min( 500, max( 5, $rows_per_page ) );
 		$custom_css      = wp_strip_all_tags( $_POST['rt_custom_css'] ?? '' );
 		$server_side     = ! empty( $_POST['rt_server_side'] );
 
@@ -948,6 +959,16 @@ class Admin_Menu {
 			$settings_partial['pagination']      = ! empty( $source['rt_feat_pagination'] );
 			$settings_partial['visibility']      = ! empty( $source['rt_feat_visibility'] );
 			$settings_partial['export']          = ! empty( $source['rt_feat_export'] );
+			$rows_per_page = intval( $source['rt_rows_per_page'] ?? 25 );
+			$settings_partial['rows_per_page'] = 0 === $rows_per_page ? 0 : min( 500, max( 5, $rows_per_page ) );
+
+			if ( isset( $source['rt_filter_columns_configured'] ) ) {
+				$column_count = count( Table_Repository::get_columns( $table_id ) );
+				$filter_columns = isset( $source['rt_filter_columns'] ) ? array_map( 'absint', (array) wp_unslash( $source['rt_filter_columns'] ) ) : [];
+				$settings_partial['filter_columns'] = array_values( array_unique( array_filter( $filter_columns, static function( $index ) use ( $column_count ) {
+					return $index < $column_count;
+				} ) ) );
+			}
 
 			$settings_partial['parse_options'] = [
 				'first_row_headers' => ! empty( $source['rt_first_row_headers'] ),

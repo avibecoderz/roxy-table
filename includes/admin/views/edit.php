@@ -24,6 +24,7 @@ if ( ! $table ) {
 
 $columns = Table_Repository::get_columns( $table_id );
 $rows = Table_Repository::get_rows( $table_id, max( 1, (int) ( $table['total_rows'] ?? 1 ) ), 0 );
+$filter_stats = Table_Repository::get_column_statistics( $table_id );
 $table_settings = is_array( $table['settings'] ?? null )
     ? $table['settings']
     : ( json_decode( (string) ( $table['settings'] ?? '' ), true ) ?: [] );
@@ -45,6 +46,11 @@ $feat_sort       = isset( $table_settings['sort'] ) ? (bool) $table_settings['so
 $feat_pagination = isset( $table_settings['pagination'] ) ? (bool) $table_settings['pagination'] : true;
 $feat_visibility = isset( $table_settings['visibility'] ) ? (bool) $table_settings['visibility'] : true;
 $feat_export     = isset( $table_settings['export'] ) ? (bool) $table_settings['export'] : false;
+$rows_per_page   = intval( $table_settings['rows_per_page'] ?? 25 );
+$rows_per_page   = 0 === $rows_per_page ? 0 : min( 500, max( 5, $rows_per_page ) );
+$saved_filter_columns = isset( $table_settings['filter_columns'] ) && is_array( $table_settings['filter_columns'] )
+    ? array_map( 'intval', $table_settings['filter_columns'] )
+    : null;
 ?>
 <div class="roxytable-edit-container" style="max-width: 880px; margin: 0 auto;">
     <div style="margin-bottom:24px;">
@@ -188,6 +194,36 @@ $feat_export     = isset( $table_settings['export'] ) ? (bool) $table_settings['
                                     <span class="rt-toggle-text"><?php _e( 'Enable export (CSV)', 'roxytable' ); ?></span>
                                 </label>
                             </div>
+                            <div style="max-width:200px;margin-top:16px;">
+                                <label class="rt-label" for="rt-edit-rows-per-page"><?php _e( 'Rows per page', 'roxytable' ); ?></label>
+                                <select id="rt-edit-rows-per-page" name="rt_rows_per_page" class="rt-field">
+                                    <option value="25" <?php selected( 25, $rows_per_page ); ?>>25</option>
+                                    <option value="50" <?php selected( 50, $rows_per_page ); ?>>50</option>
+                                    <option value="100" <?php selected( 100, $rows_per_page ); ?>>100</option>
+                                    <option value="250" <?php selected( 250, $rows_per_page ); ?>>250</option>
+                                    <option value="500" <?php selected( 500, $rows_per_page ); ?>>500</option>
+                                    <option value="0" <?php selected( 0, $rows_per_page ); ?>><?php _e( 'All rows', 'roxytable' ); ?></option>
+                                </select>
+                            </div>
+                            <fieldset style="margin-top:20px;border:0;padding:0;">
+                                <legend class="rt-label"><?php _e( 'Frontend filter columns', 'roxytable' ); ?></legend>
+                                <p class="rt-hint"><?php _e( 'Choose which columns visitors can filter. Every table column is available.', 'roxytable' ); ?></p>
+                                <input type="hidden" name="rt_filter_columns_configured" value="1" />
+                                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;max-height:260px;overflow:auto;padding:8px;border:1px solid var(--border-color);border-radius:4px;">
+                                    <?php foreach ( $columns as $column_index => $column ) :
+                                        $column_stats = $filter_stats[ $column_index ] ?? [];
+                                        $column_name = strtolower( trim( $column['name'] ) );
+                                        $is_serial = in_array( $column_name, [ '#', 's/n', 'sn', 's.n.', 's.n', 'serial', 'serial no', 'serial number', 'no.', 'no', 'index', 'sl', 'sl.no', 'sl. no.' ], true );
+                                        $default_filter = ! $is_serial && count( $column_stats['categories'] ?? [] ) > 1 && count( $column_stats['categories'] ?? [] ) <= 300;
+                                        $filter_selected = null === $saved_filter_columns ? $default_filter : in_array( $column_index, $saved_filter_columns, true );
+                                    ?>
+                                        <label class="rt-checkbox-label">
+                                            <input type="checkbox" name="rt_filter_columns[]" value="<?php echo (int) $column_index; ?>" <?php checked( $filter_selected, true ); ?> />
+                                            <span><?php echo esc_html( $column['name'] ); ?></span>
+                                        </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            </fieldset>
                         </div>
                     </div>
                 </div>
@@ -201,6 +237,9 @@ $feat_export     = isset( $table_settings['export'] ) ? (bool) $table_settings['
     </div>
 
     <div style="margin-top:18px;">
+        <?php if ( isset( $_GET['settings_saved'] ) && '1' === $_GET['settings_saved'] ) : ?>
+            <div class="notice notice-success" style="margin:0 0 16px;padding:10px 12px;"><p style="margin:0;"><?php _e( 'Table settings saved successfully.', 'roxytable' ); ?></p></div>
+        <?php endif; ?>
         <?php if ( isset( $_GET['template_created'] ) && '1' === $_GET['template_created'] ) : ?>
             <div class="notice notice-success" style="margin:0 0 16px;padding:10px 12px;"><p style="margin:0;"><?php _e( 'Template applied. Add your data, then publish the table when it is ready.', 'roxytable' ); ?></p></div>
         <?php endif; ?>

@@ -184,9 +184,10 @@ class Frontend {
 	}
 
 	/**
-	 * Render table body HTML, handling #rowspan# and #colspan# attributes for non-empty merged cells.
+	 * Render a structurally consistent table body from stored row data.
 	 *
-	 * Empty cells (where #rowspan# was skipped) render cleanly as standard empty <td></td> elements.
+	 * Merged spreadsheet placeholders are rendered as empty cells so every row
+	 * retains one cell per column when frontend filtering removes other rows.
 	 *
 	 * @param array $rows
 	 * @param array $columns
@@ -200,57 +201,19 @@ class Frontend {
 
 		$rowCount = count( $matrix );
 		$colCount = count( $columns );
-		$spanned  = [];
-
 		$html = '<tbody>';
 
 		for ( $r = 0; $r < $rowCount; $r++ ) {
 			$html .= '<tr style="border-bottom:1px solid #f1f5f9;">';
 			for ( $c = 0; $c < $colCount; $c++ ) {
-				if ( ! empty( $spanned["{$r}_{$c}"] ) ) {
-					continue; // Covered merged cell — skip rendering
-				}
-
 				$cellValue = (string) ( $matrix[ $r ][ $c ] ?? '' );
 
 				if ( '#rowspan#' === $cellValue || '#colspan#' === $cellValue ) {
-					// Fallback: orphan placeholder without origin -> render empty cell
-					$html .= '<td data-label="' . esc_attr( $columns[ $c ]['name'] ?? '' ) . '" style="padding:8px;"></td>';
-					continue;
-				}
-
-				// Calculate rowspan
-				$rowspan = 1;
-				for ( $downR = $r + 1; $downR < $rowCount; $downR++ ) {
-					if ( isset( $matrix[ $downR ][ $c ] ) && '#rowspan#' === $matrix[ $downR ][ $c ] ) {
-						$rowspan++;
-						$spanned["{$downR}_{$c}"] = true;
-					} else {
-						break;
-					}
-				}
-
-				// Calculate colspan
-				$colspan = 1;
-				for ( $rightC = $c + 1; $rightC < $colCount; $rightC++ ) {
-					if ( isset( $matrix[ $r ][ $rightC ] ) && '#colspan#' === $matrix[ $r ][ $rightC ] ) {
-						$colspan++;
-						$spanned["{$r}_{$rightC}"] = true;
-					} else {
-						break;
-					}
-				}
-
-				$attrStr = 'style="padding:8px;"';
-				if ( $rowspan > 1 ) {
-					$attrStr .= ' rowspan="' . intval( $rowspan ) . '"';
-				}
-				if ( $colspan > 1 ) {
-					$attrStr .= ' colspan="' . intval( $colspan ) . '"';
+					$cellValue = '';
 				}
 
 				$label = $columns[ $c ]['name'] ?? '';
-				$html .= '<td data-label="' . esc_attr( $label ) . '" ' . $attrStr . '>' . wp_kses_post( $cellValue ) . '</td>';
+				$html .= '<td data-label="' . esc_attr( $label ) . '" style="padding:8px;">' . wp_kses_post( $cellValue ) . '</td>';
 			}
 			$html .= '</tr>';
 		}
