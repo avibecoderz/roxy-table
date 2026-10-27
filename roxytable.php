@@ -3,7 +3,7 @@
  * Plugin Name:       RoxyTable
  * Plugin URI:        https://fokalbits.com/roxytable
  * Description:       Import Excel (.xlsx/.xls/.csv) files and display them as searchable, sortable, paginated HTML tables.
- * Version:           1.0.9
+ * Version:           1.0.10
  * Requires at least: 5.6
  * Requires PHP:      6.0
  * Author:            Fokalbits	
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define core constants.
-define( 'ROXYTABLE_VERSION', '1.0.9' );
+define( 'ROXYTABLE_VERSION', '1.0.10' );
 define( 'ROXYTABLE_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ROXYTABLE_URL', plugin_dir_url( __FILE__ ) );
 define( 'ROXYTABLE_PLUGIN_FILE', __FILE__ );

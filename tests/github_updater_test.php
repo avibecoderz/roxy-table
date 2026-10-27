@@ -236,6 +236,7 @@ if ( ! isset( $info->requires_php ) || $info->requires_php !== '6.0' ) {
 echo "PASSED: Plugin details modal information correctly populated with requires_php=6.0.\n";
 
 // Test 8: Purge Cache — clears both transient keys
+$GLOBALS['wp_transients']['timeout_update_plugins'] = time() + 3600;
 $updater->purge_cache();
 if ( get_site_transient( 'roxytable_github_release' ) !== false ) {
 	fwrite( STDERR, "FAILED: Cache purge did not clear legacy roxytable_github_release transient.\n" );
@@ -245,7 +246,11 @@ if ( get_site_transient( 'roxytable_release_v2' ) !== false ) {
 	fwrite( STDERR, "FAILED: Cache purge did not clear roxytable_release_v2 transient.\n" );
 	exit( 1 );
 }
-echo "PASSED: Cache purge successfully cleared both legacy and current transient keys.\n";
+if ( get_site_transient( 'timeout_update_plugins' ) !== false ) {
+	fwrite( STDERR, "FAILED: Cache purge did not clear the WordPress plugin update timeout.\n" );
+	exit( 1 );
+}
+echo "PASSED: Cache purge cleared release and WordPress update timeout transients.\n";
 
 // Test 9: fix_extracted_directory dynamically matches plugin folder name
 global $wp_filesystem;

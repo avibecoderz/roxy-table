@@ -117,11 +117,17 @@ class Github_Updater {
 
 		$this->purge_cache();
 
-		if ( function_exists( 'delete_site_transient' ) ) {
+		if ( function_exists( 'wp_clean_update_cache' ) ) {
+			wp_clean_update_cache();
+		} elseif ( function_exists( 'delete_site_transient' ) ) {
 			delete_site_transient( 'update_plugins' );
+			delete_site_transient( 'timeout_update_plugins' );
 		}
 		if ( function_exists( 'wp_clean_plugins_cache' ) ) {
 			wp_clean_plugins_cache();
+		}
+		if ( function_exists( 'wp_update_plugins' ) ) {
+			wp_update_plugins();
 		}
 
 		wp_safe_redirect( add_query_arg( 'roxytable_updated_checked', '1', admin_url( 'plugins.php' ) ) );
@@ -134,6 +140,7 @@ class Github_Updater {
 	public function purge_cache() {
 		delete_site_transient( 'roxytable_github_release' );  // legacy key — clear it too
 		delete_site_transient( 'roxytable_release_v2' );
+		delete_site_transient( 'timeout_update_plugins' );
 	}
 
 	/**

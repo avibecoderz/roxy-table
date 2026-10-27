@@ -4,6 +4,11 @@ All notable changes to the RoxyTable WordPress plugin will be documented in this
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-10-27
+
+### Fixed
+- **Manual Update Check**: Clear WordPress's plugin update-check timeout and trigger a fresh update check so the Plugins screen can discover the latest published GitHub release immediately.
+
 ## [1.0.9] - 2026-10-27
 
 ### Added
