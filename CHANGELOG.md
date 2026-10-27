@@ -4,6 +4,17 @@ All notable changes to the RoxyTable WordPress plugin will be documented in this
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-10-27
+
+### Added
+- **Configurable Frontend Filter Columns**: Administrators can select which table columns are available as visitor-facing filters, including columns with many unique values.
+- **Show All Rows**: Added an all-rows option alongside configurable page sizes.
+
+### Fixed
+- **Persisted Table Settings**: Save the filter-column selection and page size through the AJAX settings form so changes remain after refresh.
+- **Filtered Table Alignment**: Render merged spreadsheet placeholders as regular blank cells so row filtering does not shift table columns.
+- **Database Setup Recovery**: Create missing plugin tables during initialization when a schema upgrade is needed.
+
 ## [1.0.8] - 2026-10-22
 
 ### Fixed
