@@ -268,8 +268,8 @@ $remote_source = '/tmp/upgrade/';
 // Case A: Plugin installed in 'roxytable/roxytable.php'
 $hook_extra = [ 'plugin' => 'roxytable/roxytable.php' ];
 $res = $updater->fix_extracted_directory( $source, $remote_source, null, $hook_extra );
-if ( rtrim( $res, '/\\' ) !== '/tmp/upgrade/roxytable' ) {
-	fwrite( STDERR, "FAILED: Expected target directory to be '/tmp/upgrade/roxytable', got '$res'.\n" );
+if ( '/tmp/upgrade/roxytable/' !== $res ) {
+	fwrite( STDERR, "FAILED: Expected target directory to be '/tmp/upgrade/roxytable/' with a trailing slash, got '$res'.\n" );
 	exit( 1 );
 }
 echo "PASSED: Directory extraction correctly preserved 'roxytable' folder name.\n";
