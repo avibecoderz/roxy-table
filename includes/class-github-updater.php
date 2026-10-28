@@ -282,7 +282,8 @@ class Github_Updater {
 			return new \WP_Error( 'roxytable_update_directory', __( 'Could not prepare the RoxyTable update directory.', 'roxytable' ) );
 		}
 
-		return $target;
+		// Core's Plugin_Upgrader::check_package() globs $source . '*.php', so the trailing slash is required.
+		return trailingslashit( $target );
 	}
 
 	/**
