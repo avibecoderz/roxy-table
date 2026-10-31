@@ -1,13 +1,13 @@
 <?php
 /**
  * Plugin Name:       RoxyTable
- * Plugin URI:        https://fokalbits.com/roxytable
+ * Plugin URI:        https://webpress.digital/
  * Description:       Import Excel (.xlsx/.xls/.csv) files and display them as searchable, sortable, paginated HTML tables.
- * Version:           1.0.10
+ * Version:           1.0.11
  * Requires at least: 5.6
  * Requires PHP:      6.0
- * Author:            Fokalbits	
- * Author URI:        https://fokalbits.com
+ * Author:            WebPress Technologies
+ * Author URI:        https://webpress.digital/
  * License:           GPL-2.0-or-later
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain:       roxytable
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define core constants.
-define( 'ROXYTABLE_VERSION', '1.0.10' );
+define( 'ROXYTABLE_VERSION', '1.0.11' );
 define( 'ROXYTABLE_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ROXYTABLE_URL', plugin_dir_url( __FILE__ ) );
 define( 'ROXYTABLE_PLUGIN_FILE', __FILE__ );

@@ -214,6 +214,16 @@ class Admin_Menu {
 					'remove_empty_rows' => ! empty( $_POST['rt_remove_empty_rows'] ),
 					'remove_empty_cols' => ! empty( $_POST['rt_remove_empty_cols'] ),
 				];
+				if ( isset( $_POST['rt_custom_css'] ) ) {
+					$settings_partial['custom_css'] = \RoxyTable\Includes\Frontend::sanitize_custom_css( (string) $_POST['rt_custom_css'] );
+				}
+				if ( current_user_can( 'manage_options' ) && current_user_can( 'unfiltered_html' ) ) {
+					if ( isset( $_POST['rt_custom_js'] ) ) {
+						$settings_partial['custom_js'] = \RoxyTable\Includes\Frontend::sanitize_custom_js( (string) $_POST['rt_custom_js'] );
+					}
+					$settings_partial['custom_js_enabled'] = ! empty( $_POST['rt_custom_js_enabled'] );
+				}
+				$settings_partial['server_side'] = ! empty( $_POST['rt_server_side'] );
 			}
 
 			if ( ! empty( $settings_partial ) ) {
@@ -272,22 +282,25 @@ class Admin_Menu {
 			return __( 'You do not have permission to perform this action.', 'roxytable' );
 		}
 
-		if ( ! isset( $_POST['roxytable_confirm_nonce'] ) || ! wp_verify_nonce( sanitize_key( $_POST['roxytable_confirm_nonce'] ), 'roxytable_confirm_import' ) ) {
+		if ( ! isset( $_POST['roxytable_confirm_nonce'] ) || ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['roxytable_confirm_nonce'] ) ), 'roxytable_confirm_import' ) ) {
 			return __( 'Security check failed. Please try again.', 'roxytable' );
 		}
 
-		$sheet_index = isset( $_POST['rt_sheet_index'] ) ? intval( $_POST['rt_sheet_index'] ) : 0;
+		$sheet_index = isset( $_POST['rt_sheet_index'] ) ? intval( wp_unslash( $_POST['rt_sheet_index'] ) ) : 0;
 
 		// ── Sanitise form fields ──────────────────────────────────────────────
-		$table_name   = sanitize_text_field( $_POST['rt_table_name'] ?? '' );
-		$table_slug   = sanitize_title( $_POST['rt_table_slug'] ?? '' );
-		$description  = sanitize_textarea_field( $_POST['rt_table_description'] ?? '' );
-		$status       = in_array( $_POST['rt_table_status'] ?? 'draft', [ 'draft', 'published' ], true )
-			? $_POST['rt_table_status'] : 'draft';
-		$rows_per_page   = intval( $_POST['rt_rows_per_page'] ?? 25 );
-		$rows_per_page   = 0 === $rows_per_page ? 0 : min( 500, max( 5, $rows_per_page ) );
-		$custom_css      = wp_strip_all_tags( $_POST['rt_custom_css'] ?? '' );
-		$server_side     = ! empty( $_POST['rt_server_side'] );
+		$table_name    = isset( $_POST['rt_table_name'] ) ? sanitize_text_field( wp_unslash( $_POST['rt_table_name'] ) ) : '';
+		$table_slug    = isset( $_POST['rt_table_slug'] ) ? sanitize_title( wp_unslash( $_POST['rt_table_slug'] ) ) : '';
+		$description   = isset( $_POST['rt_table_description'] ) ? sanitize_textarea_field( wp_unslash( $_POST['rt_table_description'] ) ) : '';
+		$raw_status    = isset( $_POST['rt_table_status'] ) ? sanitize_key( wp_unslash( $_POST['rt_table_status'] ) ) : 'draft';
+		$status        = in_array( $raw_status, [ 'draft', 'published' ], true ) ? $raw_status : 'draft';
+		$rows_per_page = isset( $_POST['rt_rows_per_page'] ) ? intval( wp_unslash( $_POST['rt_rows_per_page'] ) ) : 25;
+		$rows_per_page = 0 === $rows_per_page ? 0 : min( 500, max( 5, $rows_per_page ) );
+		$custom_css        = isset( $_POST['rt_custom_css'] ) ? \RoxyTable\Includes\Frontend::sanitize_custom_css( (string) $_POST['rt_custom_css'] ) : '';
+		$can_save_js       = current_user_can( 'manage_options' ) && current_user_can( 'unfiltered_html' );
+		$custom_js         = ( $can_save_js && isset( $_POST['rt_custom_js'] ) ) ? \RoxyTable\Includes\Frontend::sanitize_custom_js( (string) $_POST['rt_custom_js'] ) : '';
+		$custom_js_enabled = $can_save_js && ! empty( $_POST['rt_custom_js_enabled'] );
+		$server_side       = ! empty( $_POST['rt_server_side'] );
 
 		$parse_options = [
 			'first_row_headers'  => ! empty( $_POST['rt_first_row_headers'] ),
@@ -299,17 +312,19 @@ class Admin_Menu {
 		$worksheets = \RoxyTable\Includes\Admin\Import_Handler::get_worksheets();
 
 		$settings = [
-			'search'          => ! empty( $_POST['rt_feat_search'] ),
-			'sheet_filtering' => ! isset( $_POST['rt_feat_sheet_filter'] ) || ! empty( $_POST['rt_feat_sheet_filter'] ),
-			'table_filtering' => ! isset( $_POST['rt_feat_table_filter'] ) || ! empty( $_POST['rt_feat_table_filter'] ),
-			'sort'            => ! empty( $_POST['rt_feat_sort'] ),
-			'pagination'      => ! empty( $_POST['rt_feat_pagination'] ),
-			'visibility'      => ! empty( $_POST['rt_feat_visibility'] ),
-			'export'          => ! empty( $_POST['rt_feat_export'] ),
-			'rows_per_page'   => $rows_per_page,
-			'custom_css'      => $custom_css,
-			'server_side'     => $server_side,
-			'sheets'          => is_array( $worksheets ) ? $worksheets : [],
+			'search'            => ! empty( $_POST['rt_feat_search'] ),
+			'sheet_filtering'   => ! isset( $_POST['rt_feat_sheet_filter'] ) || ! empty( $_POST['rt_feat_sheet_filter'] ),
+			'table_filtering'   => ! isset( $_POST['rt_feat_table_filter'] ) || ! empty( $_POST['rt_feat_table_filter'] ),
+			'sort'              => ! empty( $_POST['rt_feat_sort'] ),
+			'pagination'        => ! empty( $_POST['rt_feat_pagination'] ),
+			'visibility'        => ! empty( $_POST['rt_feat_visibility'] ),
+			'export'            => ! empty( $_POST['rt_feat_export'] ),
+			'rows_per_page'     => $rows_per_page,
+			'custom_css'        => $custom_css,
+			'custom_js'         => $custom_js,
+			'custom_js_enabled' => $custom_js_enabled,
+			'server_side'       => $server_side,
+			'sheets'            => is_array( $worksheets ) ? $worksheets : [],
 		];
 
 		if ( '' === $table_name ) {
@@ -483,6 +498,14 @@ class Admin_Menu {
 		// Enqueue WordPress native media library scripts & modal
 		wp_enqueue_media();
 
+		// Enqueue WordPress built-in CodeMirror editor for Custom JavaScript & Custom CSS
+		$code_editor_js  = false;
+		$code_editor_css = false;
+		if ( function_exists( 'wp_enqueue_code_editor' ) ) {
+			$code_editor_js  = wp_enqueue_code_editor( [ 'type' => 'application/javascript' ] );
+			$code_editor_css = wp_enqueue_code_editor( [ 'type' => 'text/css' ] );
+		}
+
 		// Enqueue Google Font Inter
 		wp_enqueue_style( 'roxytable-google-font-inter', 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap', [], ROXYTABLE_VERSION );
 
@@ -498,6 +521,9 @@ class Admin_Menu {
 			'max_upload_size'           => wp_max_upload_size(),
 			'max_upload_size_formatted' => size_format( wp_max_upload_size() ),
 			'allowed_extensions'        => [ 'xlsx', 'xls', 'csv' ],
+			'code_editor_js'            => $code_editor_js,
+			'code_editor_css'           => $code_editor_css,
+			'can_unfiltered_html'       => current_user_can( 'manage_options' ) && current_user_can( 'unfiltered_html' ),
 			'nonces'   => [
 				'save_data'        => wp_create_nonce( 'roxytable_save_data' ),
 				'save_table'       => wp_create_nonce( 'roxytable_save_table' ),
@@ -976,6 +1002,16 @@ class Admin_Menu {
 				'remove_empty_rows' => ! empty( $source['rt_remove_empty_rows'] ),
 				'remove_empty_cols' => ! empty( $source['rt_remove_empty_cols'] ),
 			];
+			if ( isset( $source['rt_custom_css'] ) ) {
+				$settings_partial['custom_css'] = \RoxyTable\Includes\Frontend::sanitize_custom_css( (string) $source['rt_custom_css'] );
+			}
+			if ( current_user_can( 'manage_options' ) && current_user_can( 'unfiltered_html' ) ) {
+				if ( isset( $source['rt_custom_js'] ) ) {
+					$settings_partial['custom_js'] = \RoxyTable\Includes\Frontend::sanitize_custom_js( (string) $source['rt_custom_js'] );
+				}
+				$settings_partial['custom_js_enabled'] = ! empty( $source['rt_custom_js_enabled'] );
+			}
+			$settings_partial['server_side'] = ! empty( $source['rt_server_side'] );
 		}
 
 		if ( ! empty( $settings_partial ) ) {
@@ -1422,10 +1458,10 @@ class Admin_Menu {
 
 		wp_send_json_success( [
 			'message'    => __( 'Profile updated successfully!', 'roxytable' ),
-			'avatar_url' => ROXYTABLE_URL . 'assets/images/abdulpassport.jpeg',
-			'name'       => get_option( 'roxytable_dev_name', 'Abdulrahman Sulaiman' ),
-			'title'      => get_option( 'roxytable_dev_title', 'WordPress Developer with 4+ years working Experience' ),
-			'location'   => get_option( 'roxytable_dev_location', 'Live in Nigeria' ),
+			'avatar_url' => '',
+			'name'       => get_option( 'roxytable_dev_name', 'WebPress Technologies' ),
+			'title'      => get_option( 'roxytable_dev_title', 'WordPress plugins and websites for small businesses.' ),
+			'location'   => get_option( 'roxytable_dev_location', 'Plugin development and website design' ),
 		] );
 		return;
 	}

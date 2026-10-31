@@ -38,6 +38,131 @@
         return clean === '#' || clean === 's/n' || clean === 'sn' || clean === 's.n.' || clean === 's.n' || clean === 'serial' || clean === 'serial no' || clean === 'serial number' || clean === 'no.' || clean === 'no' || clean === 'index' || clean === 'sl' || clean === 'sl.no' || clean === 'sl. no.';
     }
 
+    function isWordPressAdmin(){
+        if (window.roxyTableData && window.roxyTableData.is_admin) return true;
+        if (typeof document !== 'undefined' && document.body && document.body.classList && document.body.classList.contains('wp-admin')) return true;
+        if (typeof window !== 'undefined' && window.location && typeof window.location.pathname === 'string' && window.location.pathname.indexOf('/wp-admin/') !== -1) return true;
+        return false;
+    }
+
+    function createSafeMutationObserverClass(){
+        var NativeObserver = typeof window !== 'undefined' ? window.MutationObserver : undefined;
+        if (!NativeObserver) return undefined;
+        return function SafeMutationObserver(callback){
+            var isExecuting = false;
+            var targets = [];
+            var instance = new NativeObserver(function(mutations, obs){
+                if (isExecuting) return;
+                isExecuting = true;
+                try {
+                    obs.disconnect();
+                    callback.call(obs, mutations, obs);
+                } catch (err) {
+                    console.error('[RoxyTable] Custom JS MutationObserver error:', err);
+                } finally {
+                    for (var i = 0; i < targets.length; i++) {
+                        try {
+                            origObserve.call(obs, targets[i].target, targets[i].options);
+                        } catch (e) {}
+                    }
+                    Promise.resolve().then(function(){
+                        isExecuting = false;
+                    });
+                }
+            });
+            var origObserve = instance.observe;
+            var origDisconnect = instance.disconnect;
+            instance.observe = function(target, options){
+                if (target) {
+                    var exists = false;
+                    for (var i = 0; i < targets.length; i++) {
+                        if (targets[i].target === target) {
+                            targets[i].options = options;
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists) {
+                        targets.push({ target: target, options: options });
+                    }
+                }
+                return origObserve.call(instance, target, options);
+            };
+            instance.disconnect = function(){
+                return origDisconnect.call(instance);
+            };
+            return instance;
+        };
+    }
+
+    function executeCustomJs(embed, table, tableId, settings){
+        // Allow execution on frontend pages and on the dedicated table preview (#roxytable-preview-table).
+        if (isWordPressAdmin() && (!table || table.id !== 'roxytable-preview-table')) return;
+        if (!settings) return;
+        var enabled = !Object.prototype.hasOwnProperty.call(settings, 'custom_js_enabled') ||
+            settings.custom_js_enabled === true ||
+            settings.custom_js_enabled === 1 ||
+            settings.custom_js_enabled === '1';
+        var code = typeof settings.custom_js === 'string' ? settings.custom_js.trim() : '';
+        if (!enabled || !code) return;
+        if (embed.getAttribute('data-rt-custom-js-executed') === '1') return;
+        embed.setAttribute('data-rt-custom-js-executed', '1');
+
+        // Strip any accidental <script> or </script> wrapper tags
+        code = code.replace(/<\s*\/?\s*script\b[^>]*>/gi, '').trim();
+        if (!code) return;
+
+        var SafeMO = createSafeMutationObserverClass();
+        var origMO = typeof window !== 'undefined' ? window.MutationObserver : undefined;
+        var origDocAdd = document.addEventListener;
+        var origWinAdd = window.addEventListener;
+
+        try {
+            if (SafeMO) {
+                window.MutationObserver = SafeMO;
+            }
+            if (document.readyState !== 'loading') {
+                document.addEventListener = function(type, listener, options){
+                    if (type === 'DOMContentLoaded' && typeof listener === 'function') {
+                        try { listener.call(document, new Event('DOMContentLoaded')); } catch (e) { console.error(e); }
+                        return;
+                    }
+                    return origDocAdd.call(document, type, listener, options);
+                };
+            }
+            if (document.readyState === 'complete') {
+                window.addEventListener = function(type, listener, options){
+                    if (type === 'load' && typeof listener === 'function') {
+                        try { listener.call(window, new Event('load')); } catch (e) { console.error(e); }
+                        return;
+                    }
+                    return origWinAdd.call(window, type, listener, options);
+                };
+            }
+
+            var fn = new Function(
+                'table',
+                'tableElement',
+                'container',
+                'containerElement',
+                'embed',
+                'tableId',
+                'settings',
+                'MutationObserver',
+                code
+            );
+            fn.call(table, table, table, embed, embed, embed, tableId, settings, SafeMO || origMO);
+        } catch (err) {
+            console.error('[RoxyTable] Custom JavaScript error (Table #' + tableId + '):', err);
+        } finally {
+            if (SafeMO && origMO) {
+                window.MutationObserver = origMO;
+            }
+            document.addEventListener = origDocAdd;
+            window.addEventListener = origWinAdd;
+        }
+    }
+
     function enhanceTable(container, table){
         if (table.getAttribute('data-rt-enhanced')) return;
         table.setAttribute('data-rt-enhanced', '1');
@@ -68,6 +193,12 @@
         var paginationEnabled = featureEnabled('pagination', true) && configuredRowsPerPage !== 0;
         var visibilityEnabled = featureEnabled('visibility', true);
         var exportEnabled = featureEnabled('export', false);
+
+        // Run user-configured Custom JavaScript before tableToData/pagination so any added columns/cells apply to all rows
+        executeCustomJs(embed, table, tableId, settings);
+
+        // Run user-configured Custom JavaScript before tableToData/pagination so any added columns/cells apply to all rows
+        executeCustomJs(embed, table, tableId, settings);
 
         var data = tableToData(table);
         if (!data.headers.length) return;
@@ -107,7 +238,7 @@
                 if (!th.querySelector('.rt-sort-icon')) {
                     var sortSpan = document.createElement('span');
                     sortSpan.className = 'rt-sort-icon';
-                    sortSpan.innerHTML = '▲<br/>▼';
+                    sortSpan.setAttribute('aria-hidden', 'true');
                     th.appendChild(sortSpan);
                 }
             });
@@ -573,6 +704,13 @@
             filtered = allRows.slice();
             currentPage = 1;
             renderPage();
+            try {
+                var ajaxEvt = new CustomEvent('roxytable:ajaxLoaded', {
+                    detail: { tableId: tableId, table: table, container: embed, data: respData }
+                });
+                table.dispatchEvent(ajaxEvt);
+                embed.dispatchEvent(ajaxEvt);
+            } catch (e) {}
         }
 
         function renderPage(){
@@ -655,20 +793,56 @@
 
         // Initial render
         renderPage();
+
+        // Execute user-configured Custom JavaScript on frontend after table HTML is rendered
+        executeCustomJs(embed, table, tableId, settings);
     }
 
-    function init(){
-        var previewTable = document.getElementById('roxytable-preview-table');
-        if (previewTable){
-            var pEmbed = previewTable.closest('.roxytable-embed') || previewTable.parentElement;
-            enhanceTable(pEmbed, previewTable);
+    function scanAndEnhanceTables(root){
+        var scope = root || document;
+        if (scope === document) {
+            var previewTable = document.getElementById('roxytable-preview-table');
+            if (previewTable){
+                var pEmbed = previewTable.closest('.roxytable-embed') || previewTable.parentElement;
+                enhanceTable(pEmbed, previewTable);
+            }
         }
 
-        var frontTables = document.querySelectorAll('.roxytable-embed .roxytable-table, .roxytable-table, table.roxytable-preview-table');
+        var frontTables = scope.querySelectorAll
+            ? scope.querySelectorAll('.roxytable-embed .roxytable-table, .roxytable-table, table.roxytable-preview-table')
+            : [];
         frontTables.forEach(function(table){
             var tEmbed = table.closest('.roxytable-embed') || table.parentElement;
             enhanceTable(tEmbed, table);
         });
+    }
+
+    function init(){
+        scanAndEnhanceTables(document);
+
+        // Observe dynamically injected / AJAX-loaded tables on frontend pages
+        if (!isWordPressAdmin() && typeof MutationObserver !== 'undefined' && document.body) {
+            var observer = new MutationObserver(function(mutations){
+                for (var i = 0; i < mutations.length; i++) {
+                    var added = mutations[i].addedNodes;
+                    for (var j = 0; j < added.length; j++) {
+                        var node = added[j];
+                        if (node && node.nodeType === 1) {
+                            if (node.matches && (node.matches('.roxytable-embed') || node.matches('.roxytable-table'))) {
+                                var tbl = node.matches('.roxytable-table') ? node : node.querySelector('.roxytable-table');
+                                if (tbl) {
+                                    var emb = tbl.closest('.roxytable-embed') || tbl.parentElement;
+                                    enhanceTable(emb, tbl);
+                                }
+                            } else if (node.querySelectorAll) {
+                                scanAndEnhanceTables(node);
+                            }
+                        }
+                    }
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        }
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

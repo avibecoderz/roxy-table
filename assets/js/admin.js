@@ -9,6 +9,7 @@ document.addEventListener( 'DOMContentLoaded', () => {
 		initGlobalSearch();
 	}
 
+	initCodeEditors();
 	initAjaxForms();
 
 	const urlParams  = new URLSearchParams( window.location.search );
@@ -23,7 +24,129 @@ document.addEventListener( 'DOMContentLoaded', () => {
 		initTablesList();
 	}
 
+	if ( activePage === 'roxytable' ) {
+		initDashboard();
+	}
+
 } );
+
+/* =========================================================
+   Dashboard — recent tables filtering & row action menus
+   ========================================================= */
+
+function initDashboard() {
+	const root = document.querySelector( '.rt-dash' );
+	if ( ! root ) return;
+
+	// ----- Client-side filtering of the recent tables list -----
+	const searchInput  = document.getElementById( 'rt-dash-recent-search' );
+	const statusFilter = document.getElementById( 'rt-dash-status-filter' );
+	const rows         = Array.from( root.querySelectorAll( '.rt-dash-row' ) );
+	const noMatchRow   = root.querySelector( '.rt-dash-no-match' );
+
+	const applyFilters = () => {
+		const term   = ( searchInput ? searchInput.value : '' ).trim().toLowerCase();
+		const status = statusFilter ? statusFilter.value : 'all';
+		let visible  = 0;
+
+		rows.forEach( ( row ) => {
+			const matchesTerm   = ! term || ( row.dataset.search || '' ).includes( term );
+			const matchesStatus = status === 'all' || row.dataset.status === status;
+			const show          = matchesTerm && matchesStatus;
+			row.hidden = ! show;
+			if ( show ) visible++;
+		} );
+
+		if ( noMatchRow ) {
+			noMatchRow.hidden = visible > 0 || rows.length === 0;
+		}
+	};
+
+	if ( searchInput ) searchInput.addEventListener( 'input', applyFilters );
+	if ( statusFilter ) statusFilter.addEventListener( 'change', applyFilters );
+
+	// ----- Three-dot row menus -----
+	const closeMenus = ( except = null ) => {
+		root.querySelectorAll( '.rt-dash-menu' ).forEach( ( menu ) => {
+			if ( menu === except ) return;
+			const toggle = menu.querySelector( '.rt-dash-menu-toggle' );
+			const list   = menu.querySelector( '.rt-dash-menu-list' );
+			if ( toggle ) toggle.setAttribute( 'aria-expanded', 'false' );
+			if ( list ) list.hidden = true;
+		} );
+	};
+
+	root.addEventListener( 'click', ( e ) => {
+		const toggle = e.target.closest( '.rt-dash-menu-toggle' );
+		if ( toggle ) {
+			e.preventDefault();
+			const menu   = toggle.closest( '.rt-dash-menu' );
+			const list   = menu.querySelector( '.rt-dash-menu-list' );
+			const isOpen = toggle.getAttribute( 'aria-expanded' ) === 'true';
+			closeMenus( menu );
+			toggle.setAttribute( 'aria-expanded', isOpen ? 'false' : 'true' );
+			list.hidden = isOpen;
+			if ( ! isOpen ) {
+				const first = list.querySelector( 'a, button' );
+				if ( first ) first.focus();
+			}
+			return;
+		}
+
+		const copyBtn = e.target.closest( '.rt-dash-copy-shortcode' );
+		if ( copyBtn ) {
+			e.preventDefault();
+			copyDashboardShortcode( copyBtn.dataset.shortcode || '' );
+			closeMenus();
+		}
+	} );
+
+	document.addEventListener( 'click', ( e ) => {
+		if ( ! e.target.closest( '.rt-dash-menu' ) ) closeMenus();
+	} );
+
+	document.addEventListener( 'keydown', ( e ) => {
+		if ( e.key !== 'Escape' ) return;
+		const open = root.querySelector( '.rt-dash-menu-toggle[aria-expanded="true"]' );
+		closeMenus();
+		if ( open ) open.focus();
+	} );
+}
+
+function copyDashboardShortcode( shortcode ) {
+	if ( ! shortcode ) return;
+
+	const notify = ( ok ) => {
+		const msg = ok ? 'Shortcode copied: ' + shortcode : 'Could not copy. Shortcode: ' + shortcode;
+		if ( typeof showToast === 'function' ) {
+			showToast( msg, ok ? 'success' : 'error' );
+		} else {
+			window.alert( msg );
+		}
+	};
+
+	if ( navigator.clipboard && window.isSecureContext ) {
+		navigator.clipboard.writeText( shortcode ).then( () => notify( true ), () => notify( false ) );
+		return;
+	}
+
+	// Fallback for non-secure (http) admin screens.
+	const temp = document.createElement( 'textarea' );
+	temp.value = shortcode;
+	temp.setAttribute( 'readonly', '' );
+	temp.style.position = 'fixed';
+	temp.style.opacity  = '0';
+	document.body.appendChild( temp );
+	temp.select();
+	let ok = false;
+	try {
+		ok = document.execCommand( 'copy' );
+	} catch ( err ) {
+		ok = false;
+	}
+	document.body.removeChild( temp );
+	notify( ok );
+}
 
 /* =========================================================
    Import page — all three steps
@@ -738,6 +861,7 @@ function initAjaxForms() {
 			}
 
 			try {
+				syncCodeEditors();
 				const formData = new FormData( metaForm );
 				formData.append( 'action', 'roxytable_save_table' );
 				formData.append( 'nonce', ajaxData.nonces.save_table );
@@ -1246,6 +1370,7 @@ function initAjaxForms() {
 			console.groupCollapsed( '[RoxyTable] Confirming table import...' );
 
 			try {
+				syncCodeEditors();
 				const formData = new FormData( confirmImportForm );
 				formData.append( 'action', 'roxytable_confirm_import' );
 				formData.append( 'nonce', ajaxData.nonces.confirm_import );
@@ -1404,3 +1529,127 @@ function initAjaxForms() {
 
 
 
+
+
+/* =========================================================
+   Advanced Settings — WordPress CodeMirror Initialisation
+   ========================================================= */
+
+const rtCodeMirrorInstances = [];
+
+function syncCodeEditors() {
+	rtCodeMirrorInstances.forEach( ( inst ) => {
+		if ( inst && inst.codemirror && typeof inst.codemirror.save === 'function' ) {
+			inst.codemirror.save();
+		}
+	} );
+}
+
+function refreshCodeEditors() {
+	rtCodeMirrorInstances.forEach( ( inst ) => {
+		if ( inst && inst.codemirror && typeof inst.codemirror.refresh === 'function' ) {
+			setTimeout( () => inst.codemirror.refresh(), 50 );
+		}
+	} );
+}
+
+function initCodeEditors() {
+	if ( typeof window.wp === 'undefined' || ! window.wp.codeEditor || typeof window.wp.codeEditor.initialize !== 'function' ) {
+		return;
+	}
+
+	const ajaxData = window.roxyAdminData || {};
+	const jsTextarea  = document.getElementById( 'rt-custom-js' );
+	const jsToggle    = document.getElementById( 'rt-custom-js-enabled' );
+	if ( jsToggle ) {
+		jsToggle.addEventListener( 'change', () => {
+			jsToggle.dataset.userToggled = '1';
+		} );
+	}
+	if ( jsTextarea ) {
+		jsTextarea.addEventListener( 'input', () => {
+			if ( jsToggle && ! jsToggle.disabled && jsTextarea.value.trim() !== '' && ! jsToggle.dataset.userToggled ) {
+				jsToggle.checked = true;
+			}
+		} );
+	}
+	const cssTextarea = document.getElementById( 'rt-custom-css' );
+
+	if ( jsTextarea && ! jsTextarea.dataset.rtCmInit ) {
+		try {
+			const baseSettings = ajaxData.code_editor_js
+				? JSON.parse( JSON.stringify( ajaxData.code_editor_js ) )
+				: { codemirror: {} };
+			baseSettings.codemirror = Object.assign( {}, baseSettings.codemirror || {}, {
+				mode: 'javascript',
+				lineNumbers: true,
+				lineWrapping: true,
+				readOnly: jsTextarea.hasAttribute( 'readonly' ) || jsTextarea.disabled,
+			} );
+			const instance = window.wp.codeEditor.initialize( jsTextarea, baseSettings );
+			if ( instance && instance.codemirror ) {
+				jsTextarea.dataset.rtCmInit = '1';
+				instance.codemirror.on( 'change', () => {
+					instance.codemirror.save();
+					const toggle = document.getElementById( 'rt-custom-js-enabled' );
+					if ( toggle && ! toggle.disabled && instance.codemirror.getValue().trim() !== '' && ! toggle.dataset.userToggled ) {
+						toggle.checked = true;
+					}
+				} );
+				rtCodeMirrorInstances.push( instance );
+			}
+		} catch ( err ) {
+			console.warn( '[RoxyTable] Could not initialize CodeMirror for Custom JS:', err );
+		}
+	}
+
+	if ( cssTextarea && ! cssTextarea.dataset.rtCmInit ) {
+		try {
+			const baseSettings = ajaxData.code_editor_css
+				? JSON.parse( JSON.stringify( ajaxData.code_editor_css ) )
+				: { codemirror: {} };
+			baseSettings.codemirror = Object.assign( {}, baseSettings.codemirror || {}, {
+				mode: 'css',
+				lineNumbers: true,
+				lineWrapping: true,
+			} );
+			const instance = window.wp.codeEditor.initialize( cssTextarea, baseSettings );
+			if ( instance && instance.codemirror ) {
+				cssTextarea.dataset.rtCmInit = '1';
+				instance.codemirror.on( 'change', () => {
+					instance.codemirror.save();
+					const toggle = document.getElementById( 'rt-custom-js-enabled' );
+					if ( toggle && ! toggle.disabled && instance.codemirror.getValue().trim() !== '' && ! toggle.dataset.userToggled ) {
+						toggle.checked = true;
+					}
+				} );
+				rtCodeMirrorInstances.push( instance );
+			}
+		} catch ( err ) {
+			console.warn( '[RoxyTable] Could not initialize CodeMirror for Custom CSS:', err );
+		}
+	}
+
+	const advDetails = document.getElementById( 'rt-advanced-section' );
+	if ( advDetails ) {
+		advDetails.addEventListener( 'toggle', () => {
+			if ( advDetails.open ) {
+				refreshCodeEditors();
+			}
+		} );
+	}
+
+	const toggleOptsBtn = document.getElementById( 'rt-toggle-options-btn' );
+	if ( toggleOptsBtn ) {
+		toggleOptsBtn.addEventListener( 'click', () => {
+			refreshCodeEditors();
+		} );
+	}
+
+	[ 'rt-edit-table-meta-form', 'rt-confirm-import-form' ].forEach( ( formId ) => {
+		const formEl = document.getElementById( formId );
+		if ( formEl ) {
+			formEl.addEventListener( 'submit', () => syncCodeEditors(), true );
+		}
+	} );
+}

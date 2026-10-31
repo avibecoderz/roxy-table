@@ -374,9 +374,31 @@ $stored       = \RoxyTable\Includes\Admin\Import_Handler::get_stored_data();
 							<div class="rt-field-group">
 								<label class="rt-label" for="rt-custom-css"><?php _e( 'Custom CSS', 'roxytable' ); ?></label>
 								<textarea id="rt-custom-css" name="rt_custom_css" class="rt-field rt-code-field" rows="4"
-									placeholder="<?php esc_attr_e( '/* Your custom CSS here */\n.roxytable-table th { background: #1e293b; }', 'roxytable' ); ?>"></textarea>
+									placeholder="<?php echo esc_attr( "/* Your custom CSS here */\n.roxytable-table th { background: #1e293b; }" ); ?>"></textarea>
 								<p class="rt-hint"><?php _e( 'CSS scoped to this table only. Will be injected on pages containing the shortcode.', 'roxytable' ); ?></p>
 							</div>
+
+							<?php $can_edit_js = current_user_can( 'manage_options' ) && current_user_can( 'unfiltered_html' ); ?>
+							<div class="rt-field-group" style="margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--border-color);">
+								<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+									<label class="rt-label" for="rt-custom-js" style="margin: 0;"><?php _e( 'Custom JavaScript', 'roxytable' ); ?></label>
+									<label class="rt-toggle-label">
+										<span class="rt-toggle-switch">
+											<input type="checkbox" id="rt-custom-js-enabled" name="rt_custom_js_enabled" value="1" checked="checked" <?php echo ! $can_edit_js ? 'disabled="disabled"' : ''; ?> />
+											<span class="rt-toggle-slider"></span>
+										</span>
+										<span class="rt-toggle-text"><?php _e( 'Enable Custom JavaScript', 'roxytable' ); ?></span>
+									</label>
+								</div>
+								<textarea id="rt-custom-js" name="rt_custom_js" class="rt-field rt-code-field" rows="5"
+									placeholder="<?php echo esc_attr( "// Your custom JavaScript here\n// Available variables: table, container, tableId, settings\nconsole.log('RoxyTable loaded:', tableId);" ); ?>"
+									<?php echo ! $can_edit_js ? 'readonly="readonly"' : ''; ?>></textarea>
+								<p class="rt-hint"><?php _e( 'Add custom JavaScript to customize table behavior and appearance on the frontend. Executed after the table HTML is rendered (variables available: table, container, tableId, settings). Does not execute in the WordPress admin area.', 'roxytable' ); ?></p>
+								<?php if ( ! $can_edit_js ) : ?>
+									<p class="rt-hint" style="color: #b45309;"><?php _e( 'Your account requires the unfiltered_html capability to modify Custom JavaScript.', 'roxytable' ); ?></p>
+								<?php endif; ?>
+							</div>
+
 							<label class="rt-checkbox-label" style="margin-top: 8px;">
 								<input type="checkbox" name="rt_server_side" value="1" />
 								<span><?php _e( 'Enable server-side processing (recommended for tables over 10,000 rows)', 'roxytable' ); ?></span>

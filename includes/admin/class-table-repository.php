@@ -178,6 +178,17 @@ class Table_Repository {
 	}
 
 	/**
+	 * Sum of records across all tables (used by the dashboard statistics).
+	 *
+	 * @return int
+	 */
+	public static function sum_total_rows() : int {
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'roxy_tables';
+		return (int) $wpdb->get_var( "SELECT COALESCE( SUM( total_rows ), 0 ) FROM {$table_name}" );
+	}
+
+	/**
 	 * Delete a table and cascade to its rows/columns.
 	 *
 	 * @param int $table_id Table ID.

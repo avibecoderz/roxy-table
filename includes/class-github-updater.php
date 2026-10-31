@@ -230,7 +230,7 @@ class Github_Updater {
 			'name'          => 'RoxyTable',
 			'slug'          => $args->slug,
 			'version'       => $release['version'],
-			'author'        => '<a href="https://abdulrahmansulaiman.netlify.app">oralbitstechnology</a>',
+			'author'        => '<a href="https://webpress.digital/">WebPress Technologies</a>',
 			'homepage'      => $release['html_url'],
 			'requires'      => $wp_version,
 			'requires_php'  => '6.0',

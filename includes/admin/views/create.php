@@ -4,37 +4,49 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 ?>
-<div class="roxytable-create-container" style="max-width: 800px; margin: 0 auto;">
-	<div style="margin-bottom: 24px;">
-		<h2 style="font-size: 1.5rem; font-weight: 700; margin: 0; color: var(--text-main);"><?php _e( 'Create New Table', 'roxytable' ); ?></h2>
-		<p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 0.875rem;"><?php _e( 'Start with a blank table, add columns and data manually.', 'roxytable' ); ?></p>
-	</div>
-
-	<div class="roxytable-card">
-		<div class="roxytable-card-header">
-			<h4 class="roxytable-card-title"><?php _e( 'Table Configuration', 'roxytable' ); ?></h4>
+<div class="roxytable-create-container">
+	<div class="roxytable-card rt-dash-card rt-dash-recent" style="padding: 0; overflow: hidden;">
+		<div class="rt-dash-recent-head">
+			<div class="rt-dash-recent-heading">
+				<span class="rt-dash-recent-icon" aria-hidden="true">
+					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+				</span>
+				<div>
+					<h2><?php _e( 'Create New Table', 'roxytable' ); ?></h2>
+					<p><?php _e( 'Start with a blank table, add columns and data manually', 'roxytable' ); ?></p>
+				</div>
+			</div>
+			<div class="rt-dash-recent-tools">
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-import' ) ); ?>" class="rt-dash-btn rt-dash-btn-outline"><?php _e( 'Import Excel File', 'roxytable' ); ?></a>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-tables' ) ); ?>" class="rt-dash-btn rt-dash-btn-outline"><?php _e( 'All Tables', 'roxytable' ); ?></a>
+			</div>
 		</div>
-		<form method="post" style="display: flex; flex-direction: column; gap: 20px;">
+
+		<form method="post" style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
 			<div>
-				<label style="display: block; font-weight: 600; font-size: 0.875rem; color: var(--text-main); margin-bottom: 6px;"><?php _e( 'Table Name', 'roxytable' ); ?></label>
-				<input type="text" placeholder="e.g. Employee Directory" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-lg); font-size: 0.875rem; outline: none; transition: border-color 0.2s;" />
+				<label class="rt-label" for="rt-create-table-name"><?php _e( 'Table Name', 'roxytable' ); ?></label>
+				<input id="rt-create-table-name" name="rt_table_name" type="text" class="rt-field" placeholder="<?php esc_attr_e( 'e.g. Employee Directory', 'roxytable' ); ?>" required />
 			</div>
 			<div>
-				<label style="display: block; font-weight: 600; font-size: 0.875rem; color: var(--text-main); margin-bottom: 6px;"><?php _e( 'Description', 'roxytable' ); ?></label>
-				<textarea placeholder="e.g. Contact directory for all internal department staff." rows="4" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-lg); font-size: 0.875rem; outline: none; resize: vertical;"></textarea>
+				<label class="rt-label" for="rt-create-table-desc"><?php _e( 'Description', 'roxytable' ); ?></label>
+				<textarea id="rt-create-table-desc" name="rt_table_description" class="rt-field" placeholder="<?php esc_attr_e( 'e.g. Contact directory for all internal department staff.', 'roxytable' ); ?>" rows="4"></textarea>
 			</div>
-			<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1-fraction)); gap: 16px;">
+			<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
 				<div>
-					<label style="display: block; font-weight: 600; font-size: 0.875rem; color: var(--text-main); margin-bottom: 6px;"><?php _e( 'Initial Columns Count', 'roxytable' ); ?></label>
-					<input type="number" min="1" max="50" value="5" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-lg); font-size: 0.875rem; outline: none;" />
+					<label class="rt-label" for="rt-create-cols"><?php _e( 'Initial Columns Count', 'roxytable' ); ?></label>
+					<input id="rt-create-cols" name="rt_initial_cols" type="number" class="rt-field" min="1" max="50" value="5" />
 				</div>
 				<div>
-					<label style="display: block; font-weight: 600; font-size: 0.875rem; color: var(--text-main); margin-bottom: 6px;"><?php _e( 'Initial Rows Count', 'roxytable' ); ?></label>
-					<input type="number" min="1" max="100" value="10" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-lg); font-size: 0.875rem; outline: none;" />
+					<label class="rt-label" for="rt-create-rows"><?php _e( 'Initial Rows Count', 'roxytable' ); ?></label>
+					<input id="rt-create-rows" name="rt_initial_rows" type="number" class="rt-field" min="1" max="100" value="10" />
 				</div>
 			</div>
-			<div style="margin-top: 8px;">
-				<button type="submit" class="roxytable-btn roxytable-btn-primary"><?php _e( 'Create Table', 'roxytable' ); ?></button>
+			<div style="padding-top: 8px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px;">
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-tables' ) ); ?>" class="rt-dash-btn rt-dash-btn-outline"><?php _e( 'Cancel', 'roxytable' ); ?></a>
+				<button type="submit" class="rt-dash-btn rt-dash-btn-primary">
+					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+					<?php _e( 'Create Table', 'roxytable' ); ?>
+				</button>
 			</div>
 		</form>
 	</div>

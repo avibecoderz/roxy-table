@@ -4,6 +4,11 @@ All notable changes to the RoxyTable WordPress plugin will be documented in this
 
 ## [Unreleased]
 
+## [1.0.11] - 2026-10-29
+
+### Changed
+- **Company Profile & Branding**: Updated the dashboard profile card, plugin header, and update metadata to display **WebPress Technologies** (`https://webpress.digital/`) company branding and services (`Plugin development`, `Website design & build`) instead of personal developer details.
+
 ## [1.0.10] - 2026-10-27
 
 ### Fixed
