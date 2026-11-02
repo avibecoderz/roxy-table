@@ -51,7 +51,8 @@ $rows_per_page     = 0 === $rows_per_page ? 0 : min( 500, max( 5, $rows_per_page
 $custom_css        = isset( $table_settings['custom_css'] ) ? (string) $table_settings['custom_css'] : '';
 $custom_js         = isset( $table_settings['custom_js'] ) ? (string) $table_settings['custom_js'] : '';
 $custom_js_enabled = isset( $table_settings['custom_js_enabled'] ) ? ! empty( $table_settings['custom_js_enabled'] ) : true;
-$can_edit_js       = current_user_can( 'manage_options' ) && ( ! function_exists( 'current_user_can' ) || current_user_can( 'unfiltered_html' ) );
+$is_pro            = ( ! class_exists( '\RoxyTable\Includes\License' ) || \RoxyTable\Includes\License::is_pro() );
+$can_edit_js       = $is_pro && current_user_can( 'manage_options' ) && ( ! function_exists( 'current_user_can' ) || current_user_can( 'unfiltered_html' ) );
 $server_side       = ! empty( $table_settings['server_side'] );
 $saved_filter_columns = isset( $table_settings['filter_columns'] ) && is_array( $table_settings['filter_columns'] )
 	? array_map( 'intval', $table_settings['filter_columns'] )
@@ -101,8 +102,8 @@ $saved_filter_columns = isset( $table_settings['filter_columns'] ) && is_array( 
 					<select id="rt-table-template" name="rt_table_template" class="rt-field" style="max-width:300px;">
 						<option value="" <?php selected( '', $current_template ); ?>><?php esc_html_e( 'Default table style', 'roxytable' ); ?></option>
 						<option value="indigo" <?php selected( 'indigo', $current_template ); ?>><?php esc_html_e( 'Indigo Clean', 'roxytable' ); ?></option>
-						<option value="obsidian" <?php selected( 'obsidian', $current_template ); ?>><?php esc_html_e( 'Dark Minimal', 'roxytable' ); ?></option>
-						<option value="emerald" <?php selected( 'emerald', $current_template ); ?>><?php esc_html_e( 'Emerald Grid', 'roxytable' ); ?></option>
+						<option value="obsidian" <?php selected( 'obsidian', $current_template ); ?> <?php echo ! $is_pro ? 'disabled="disabled"' : ''; ?>><?php echo esc_html( __( 'Dark Minimal', 'roxytable' ) . ( ! $is_pro ? ' (PRO)' : '' ) ); ?></option>
+						<option value="emerald" <?php selected( 'emerald', $current_template ); ?> <?php echo ! $is_pro ? 'disabled="disabled"' : ''; ?>><?php echo esc_html( __( 'Emerald Grid', 'roxytable' ) . ( ! $is_pro ? ' (PRO)' : '' ) ); ?></option>
 					</select>
 				</div>
 
@@ -158,17 +159,17 @@ $saved_filter_columns = isset( $table_settings['filter_columns'] ) && is_array( 
 								</label>
 								<label class="rt-toggle-label">
 									<span class="rt-toggle-switch">
-										<input type="checkbox" name="rt_feat_sheet_filter" value="1" <?php checked( $feat_sheet_filt, true ); ?> />
+										<input type="checkbox" name="rt_feat_sheet_filter" value="1" <?php checked( $is_pro && $feat_sheet_filt, true ); ?> <?php echo ! $is_pro ? 'disabled="disabled"' : ''; ?> />
 										<span class="rt-toggle-slider"></span>
 									</span>
-									<span class="rt-toggle-text"><?php esc_html_e( 'Sheet-based filtering', 'roxytable' ); ?></span>
+									<span class="rt-toggle-text"><?php esc_html_e( 'Sheet-based filtering', 'roxytable' ); ?> <span class="rt-pro-badge">PRO</span></span>
 								</label>
 								<label class="rt-toggle-label">
 									<span class="rt-toggle-switch">
-										<input type="checkbox" name="rt_feat_table_filter" value="1" <?php checked( $feat_table_filt, true ); ?> />
+										<input type="checkbox" name="rt_feat_table_filter" value="1" <?php checked( $is_pro && $feat_table_filt, true ); ?> <?php echo ! $is_pro ? 'disabled="disabled"' : ''; ?> />
 										<span class="rt-toggle-slider"></span>
 									</span>
-									<span class="rt-toggle-text"><?php esc_html_e( 'Table-based filtering', 'roxytable' ); ?></span>
+									<span class="rt-toggle-text"><?php esc_html_e( 'Table-based filtering', 'roxytable' ); ?> <span class="rt-pro-badge">PRO</span></span>
 								</label>
 								<label class="rt-toggle-label">
 									<span class="rt-toggle-switch">
@@ -186,17 +187,17 @@ $saved_filter_columns = isset( $table_settings['filter_columns'] ) && is_array( 
 								</label>
 								<label class="rt-toggle-label">
 									<span class="rt-toggle-switch">
-										<input type="checkbox" name="rt_feat_visibility" value="1" <?php checked( $feat_visibility, true ); ?> />
+										<input type="checkbox" name="rt_feat_visibility" value="1" <?php checked( $is_pro && $feat_visibility, true ); ?> <?php echo ! $is_pro ? 'disabled="disabled"' : ''; ?> />
 										<span class="rt-toggle-slider"></span>
 									</span>
-									<span class="rt-toggle-text"><?php esc_html_e( 'Column visibility toggle', 'roxytable' ); ?></span>
+									<span class="rt-toggle-text"><?php esc_html_e( 'Column visibility toggle', 'roxytable' ); ?> <span class="rt-pro-badge">PRO</span></span>
 								</label>
 								<label class="rt-toggle-label">
 									<span class="rt-toggle-switch">
-										<input type="checkbox" name="rt_feat_export" value="1" <?php checked( $feat_export, true ); ?> />
+										<input type="checkbox" name="rt_feat_export" value="1" <?php checked( $is_pro && $feat_export, true ); ?> <?php echo ! $is_pro ? 'disabled="disabled"' : ''; ?> />
 										<span class="rt-toggle-slider"></span>
 									</span>
-									<span class="rt-toggle-text"><?php esc_html_e( 'Enable export (CSV)', 'roxytable' ); ?></span>
+									<span class="rt-toggle-text"><?php esc_html_e( 'Enable export (CSV)', 'roxytable' ); ?> <span class="rt-pro-badge">PRO</span></span>
 								</label>
 							</div>
 							<div style="max-width:200px;margin-top:16px;">
@@ -210,10 +211,17 @@ $saved_filter_columns = isset( $table_settings['filter_columns'] ) && is_array( 
 									<option value="0" <?php selected( 0, $rows_per_page ); ?>><?php esc_html_e( 'All rows', 'roxytable' ); ?></option>
 								</select>
 							</div>
-							<fieldset style="margin-top:20px;border:0;padding:0;">
-								<legend class="rt-label"><?php esc_html_e( 'Frontend filter columns', 'roxytable' ); ?></legend>
-								<p class="rt-hint"><?php esc_html_e( 'Choose which columns visitors can filter. Every table column is available.', 'roxytable' ); ?></p>
-								<input type="hidden" name="rt_filter_columns_configured" value="1" />
+							<fieldset style="margin-top:20px;border:0;padding:0;<?php echo ! $is_pro ? 'opacity:0.65;' : ''; ?>">
+								<legend class="rt-label"><?php esc_html_e( 'Frontend filter columns', 'roxytable' ); ?> <span class="rt-pro-badge">PRO</span></legend>
+								<p class="rt-hint">
+									<?php esc_html_e( 'Choose which columns visitors can filter. Every table column is available.', 'roxytable' ); ?>
+									<?php if ( ! $is_pro ) : ?>
+										<a href="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-settings' ) ); ?>" style="font-weight:600;margin-left:4px;"><?php esc_html_e( 'Activate Pro to unlock →', 'roxytable' ); ?></a>
+									<?php endif; ?>
+								</p>
+								<?php if ( $is_pro ) : ?>
+									<input type="hidden" name="rt_filter_columns_configured" value="1" />
+								<?php endif; ?>
 								<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;max-height:260px;overflow:auto;padding:8px;border:1px solid var(--border-color);border-radius:4px;">
 									<?php
 									foreach ( $columns as $column_index => $column ) :
@@ -224,7 +232,7 @@ $saved_filter_columns = isset( $table_settings['filter_columns'] ) && is_array( 
 										$filter_selected = null === $saved_filter_columns ? $default_filter : in_array( $column_index, $saved_filter_columns, true );
 										?>
 										<label class="rt-checkbox-label">
-											<input type="checkbox" name="rt_filter_columns[]" value="<?php echo esc_attr( (string) (int) $column_index ); ?>" <?php checked( $filter_selected, true ); ?> />
+											<input type="checkbox" name="rt_filter_columns[]" value="<?php echo esc_attr( (string) (int) $column_index ); ?>" <?php checked( $is_pro && $filter_selected, true ); ?> <?php echo ! $is_pro ? 'disabled="disabled"' : ''; ?> />
 											<span><?php echo esc_html( $column['name'] ); ?></span>
 										</label>
 									<?php endforeach; ?>
@@ -239,16 +247,27 @@ $saved_filter_columns = isset( $table_settings['filter_columns'] ) && is_array( 
 									<path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.43l1.004-.827c.292-.24.437-.613.43-.991a6.936 6.936 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z" />
 									<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
 								</svg>
-								<?php esc_html_e( 'Advanced Settings', 'roxytable' ); ?>
+								<?php esc_html_e( 'Advanced Settings', 'roxytable' ); ?> <span class="rt-pro-badge">PRO</span>
 								<svg class="rt-chevron" xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;margin-left:auto;flex-shrink:0;transition:transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
 									<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
 								</svg>
 							</summary>
 							<div class="rt-advanced-body">
+								<?php if ( ! $is_pro ) : ?>
+									<div class="rt-pro-locked-banner">
+										<div>
+											<strong><?php esc_html_e( 'RoxyTable Pro Feature:', 'roxytable' ); ?></strong>
+											<?php esc_html_e( 'Scoped Custom CSS, Custom JavaScript automation, and Server-Side AJAX processing require an active RoxyTable Pro annual license.', 'roxytable' ); ?>
+										</div>
+										<a href="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-settings' ) ); ?>" class="rt-dash-btn rt-dash-btn-primary" style="white-space: nowrap;">
+											<?php esc_html_e( 'Activate Pro License →', 'roxytable' ); ?>
+										</a>
+									</div>
+								<?php endif; ?>
 								<div class="rt-field-group">
 									<label class="rt-label" for="rt-custom-css"><?php esc_html_e( 'Custom CSS', 'roxytable' ); ?></label>
 									<textarea id="rt-custom-css" name="rt_custom_css" class="rt-field rt-code-field" rows="4"
-										placeholder="<?php echo esc_attr( "/* Your custom CSS here */\n.roxytable-table th { background: #1e293b; }" ); ?>"><?php echo esc_textarea( $custom_css ); ?></textarea>
+										placeholder="<?php echo esc_attr( "/* Your custom CSS here */\n.roxytable-table th { background: #1e293b; }" ); ?>" <?php echo ! $is_pro ? 'readonly="readonly"' : ''; ?>><?php echo esc_textarea( $custom_css ); ?></textarea>
 									<p class="rt-hint"><?php esc_html_e( 'CSS scoped to this table only. Will be injected on pages containing the shortcode.', 'roxytable' ); ?></p>
 								</div>
 
@@ -273,7 +292,7 @@ $saved_filter_columns = isset( $table_settings['filter_columns'] ) && is_array( 
 								</div>
 
 								<label class="rt-checkbox-label" style="margin-top: 8px;">
-									<input type="checkbox" name="rt_server_side" value="1" <?php checked( $server_side, true ); ?> />
+									<input type="checkbox" name="rt_server_side" value="1" <?php checked( $is_pro && $server_side, true ); ?> <?php echo ! $is_pro ? 'disabled="disabled"' : ''; ?> />
 									<span><?php esc_html_e( 'Enable server-side processing (recommended for tables over 10,000 rows)', 'roxytable' ); ?></span>
 								</label>
 							</div>

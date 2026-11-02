@@ -179,6 +179,7 @@ class Frontend {
 		$settings = is_array( $table['settings'] ?? null )
 			? $table['settings']
 			: ( json_decode( (string) ( $table['settings'] ?? '' ), true ) ?: [] );
+		$settings = ( class_exists( '\RoxyTable\Includes\License' ) ? ( class_exists( '\RoxyTable\Includes\License' ) ? \RoxyTable\Includes\License::enforce_settings_gate( $settings ) : $settings ) : $settings );
 		$template       = ! empty( $settings['template'] ) ? sanitize_html_class( $settings['template'] ) : '';
 		$template_class = $template ? ' roxytable-template-' . $template : '';
 

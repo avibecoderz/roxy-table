@@ -45,6 +45,102 @@ class Admin_Menu {
 			return;
 		}
 
+		// Handle License Activate / Deactivate from Settings page
+		if ( isset( $_POST['roxytable_license_action'] ) ) {
+			if ( ! isset( $_POST['roxytable_license_nonce'] ) || ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['roxytable_license_nonce'] ) ), 'roxytable_license_action' ) ) {
+				wp_die( esc_html__( 'Security check failed.', 'roxytable' ) );
+			}
+
+			$action = sanitize_key( wp_unslash( $_POST['roxytable_license_action'] ) );
+			if ( 'activate' === $action ) {
+				$raw_key = isset( $_POST['rt_license_key'] ) ? sanitize_text_field( wp_unslash( $_POST['rt_license_key'] ) ) : '';
+				$res     = \RoxyTable\Includes\License::activate( $raw_key );
+				set_transient(
+					'roxytable_license_notice_' . get_current_user_id(),
+					[
+						'type'    => $res['valid'] ? 'success' : 'error',
+						'message' => $res['message'],
+					],
+					30
+				);
+			} elseif ( 'deactivate' === $action ) {
+				\RoxyTable\Includes\License::deactivate();
+				set_transient(
+					'roxytable_license_notice_' . get_current_user_id(),
+					[
+						'type'    => 'success',
+						'message' => __( 'License deactivated. RoxyTable is now running in Free mode.', 'roxytable' ),
+					],
+					30
+				);
+			} elseif ( 'generate_client_key' === $action && \RoxyTable\Includes\License::is_vendor_mode() ) {
+				$raw_client_domain = isset( $_POST['rt_client_domain'] ) ? substr( sanitize_text_field( wp_unslash( $_POST['rt_client_domain'] ) ), 0, 255 ) : '';
+				$raw_duration      = isset( $_POST['rt_client_duration'] ) ? sanitize_key( wp_unslash( $_POST['rt_client_duration'] ) ) : '1year';
+				$allowed_durations = [ '1year', '2years', 'lifetime' ];
+				if ( ! in_array( $raw_duration, $allowed_durations, true ) ) {
+					$raw_duration = '1year';
+				}
+				$norm_domain = \RoxyTable\Includes\License::normalize_domain( $raw_client_domain );
+
+				if ( 'lifetime' === $raw_duration ) {
+					$exp_ymd = 'LIFETIME';
+				} elseif ( '2years' === $raw_duration ) {
+					$exp_ymd = gmdate( 'Ymd', strtotime( '+2 years' ) );
+				} else {
+					$exp_ymd = gmdate( 'Ymd', strtotime( '+1 year' ) );
+				}
+
+				$generated_key = \RoxyTable\Includes\License::generate_key( $exp_ymd, $norm_domain );
+				set_transient(
+					'roxytable_generated_client_key_' . get_current_user_id(),
+					[
+						'domain'   => $norm_domain,
+						'duration' => $raw_duration,
+						'expires'  => 'LIFETIME' === $exp_ymd ? 'Lifetime' : substr( $exp_ymd, 0, 4 ) . '-' . substr( $exp_ymd, 4, 2 ) . '-' . substr( $exp_ymd, 6, 2 ),
+						'key'      => $generated_key,
+					],
+					300
+				);
+			}
+
+			wp_safe_redirect( admin_url( 'admin.php?page=roxytable-settings' ) );
+			exit;
+		}
+
+		// Handle Global Settings Save from Settings page
+		if ( isset( $_POST['roxytable_save_global_settings'] ) ) {
+			if ( ! isset( $_POST['roxytable_global_settings_nonce'] ) || ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['roxytable_global_settings_nonce'] ) ), 'roxytable_save_global_settings' ) ) {
+				wp_die( esc_html__( 'Security check failed.', 'roxytable' ) );
+			}
+
+			$default_rows = isset( $_POST['rt_default_rows_per_page'] ) ? min( 500, max( 5, intval( wp_unslash( $_POST['rt_default_rows_per_page'] ) ) ) ) : 25;
+			$raw_delim     = isset( $_POST['rt_csv_delimiter'] ) ? sanitize_text_field( wp_unslash( $_POST['rt_csv_delimiter'] ) ) : ',';
+			$allowed_delim = [ ',', ';', '|', ':', "\t" ];
+			$delim         = in_array( $raw_delim, $allowed_delim, true ) ? $raw_delim : ',';
+
+			update_option(
+				'roxytable_global_settings',
+				[
+					'default_rows_per_page' => $default_rows,
+					'csv_delimiter'         => $delim,
+					'enable_zebra'          => ! empty( $_POST['rt_enable_zebra'] ),
+					'enable_borders'        => ! empty( $_POST['rt_enable_borders'] ),
+				]
+			);
+
+			set_transient(
+				'roxytable_license_notice_' . get_current_user_id(),
+				[
+					'type'    => 'success',
+					'message' => __( 'Global settings saved successfully.', 'roxytable' ),
+				],
+				30
+			);
+
+			wp_safe_redirect( admin_url( 'admin.php?page=roxytable-settings' ) );
+			exit;
+		}
+
 		// Create a new draft table from a design template.
 		if ( isset( $_POST['roxytable_use_template'] ) ) {
 			if ( ! isset( $_POST['roxytable_template_nonce'] ) || ! wp_verify_nonce( sanitize_key( $_POST['roxytable_template_nonce'] ), 'roxytable_use_template' ) ) {
@@ -58,7 +154,15 @@ class Admin_Menu {
 				'emerald' => [ 'name' => 'Emerald Grid Table', 'columns' => [ 'Name', 'Category', 'Description' ] ],
 			];
 			if ( ! isset( $templates[ $template ] ) ) {
-				wp_die( __( 'Invalid template selected.', 'roxytable' ) );
+				wp_die( esc_html__( 'Invalid template selected.', 'roxytable' ) );
+			}
+			if ( ! \RoxyTable\Includes\License::is_pro() ) {
+				if ( in_array( $template, [ 'obsidian', 'emerald' ], true ) ) {
+					wp_die( esc_html__( 'This template requires an active RoxyTable Pro license.', 'roxytable' ) );
+				}
+				if ( \RoxyTable\Includes\Admin\Table_Repository::count_tables() >= \RoxyTable\Includes\License::FREE_MAX_TABLES ) {
+					wp_die( esc_html__( 'Free plan table limit reached. Please activate RoxyTable Pro in Settings.', 'roxytable' ) );
+				}
 			}
 
 			$definition = $templates[ $template ];
@@ -227,6 +331,7 @@ class Admin_Menu {
 			}
 
 			if ( ! empty( $settings_partial ) ) {
+				$settings_partial = \RoxyTable\Includes\License::enforce_settings_gate( $settings_partial );
 				\RoxyTable\Includes\Admin\Table_Repository::update_table_settings( $table_id, $settings_partial );
 			}
 
@@ -331,10 +436,27 @@ class Admin_Menu {
 			return __( 'Table name is required.', 'roxytable' );
 		}
 
+		if ( ! \RoxyTable\Includes\License::is_pro() ) {
+			$existing_count = \RoxyTable\Includes\Admin\Table_Repository::count_tables();
+			if ( $existing_count >= \RoxyTable\Includes\License::FREE_MAX_TABLES ) {
+				return sprintf(
+					/* translators: %d: maximum tables in Free plan */
+					__( 'Free plan limit reached (%d tables maximum). Please activate RoxyTable Pro in Settings to create unlimited tables.', 'roxytable' ),
+					\RoxyTable\Includes\License::FREE_MAX_TABLES
+				);
+			}
+			$settings = \RoxyTable\Includes\License::enforce_settings_gate( $settings );
+		}
+
 		// ── Read full spreadsheet data ────────────────────────────────────────
 		$full_data = \RoxyTable\Includes\Admin\Import_Handler::get_full_data( $sheet_index, $parse_options );
 		if ( is_string( $full_data ) ) {
 			return $full_data; // Error message
+		}
+
+		if ( ! \RoxyTable\Includes\License::is_pro() && isset( $full_data['rows'] ) && is_array( $full_data['rows'] ) && count( $full_data['rows'] ) > \RoxyTable\Includes\License::FREE_MAX_ROWS ) {
+			$full_data['rows']       = array_slice( $full_data['rows'], 0, \RoxyTable\Includes\License::FREE_MAX_ROWS );
+			$full_data['total_rows'] = count( $full_data['rows'] );
 		}
 
 		// ── Persist to DB ─────────────────────────────────────────────────────
@@ -1015,6 +1137,7 @@ class Admin_Menu {
 		}
 
 		if ( ! empty( $settings_partial ) ) {
+			$settings_partial = \RoxyTable\Includes\License::enforce_settings_gate( $settings_partial );
 			Table_Repository::update_table_settings( $table_id, $settings_partial );
 		}
 
@@ -1223,6 +1346,48 @@ class Admin_Menu {
 				'message' => __( 'Invalid template.', 'roxytable' ),
 			], 400 );
 			return;
+		}
+
+		if ( ! \RoxyTable\Includes\License::is_pro() ) {
+			if ( in_array( $template, [ 'obsidian', 'emerald' ], true ) ) {
+				wp_send_json_error( [
+					'code'    => 'pro_required',
+					'message' => __( 'This template requires an active RoxyTable Pro license.', 'roxytable' ),
+				], 403 );
+				return;
+			}
+			if ( Table_Repository::count_tables() >= \RoxyTable\Includes\License::FREE_MAX_TABLES ) {
+				wp_send_json_error( [
+					'code'    => 'free_limit_reached',
+					'message' => sprintf(
+						/* translators: %d: maximum tables in Free plan */
+						__( 'Free plan limit reached (%d tables maximum). Please activate RoxyTable Pro in Settings.', 'roxytable' ),
+						\RoxyTable\Includes\License::FREE_MAX_TABLES
+					),
+				], 403 );
+				return;
+			}
+		}
+
+		if ( ! \RoxyTable\Includes\License::is_pro() ) {
+			if ( in_array( $template, [ 'obsidian', 'emerald' ], true ) ) {
+				wp_send_json_error( [
+					'code'    => 'pro_required',
+					'message' => __( 'This template requires an active RoxyTable Pro license.', 'roxytable' ),
+				], 403 );
+				return;
+			}
+			if ( Table_Repository::count_tables() >= \RoxyTable\Includes\License::FREE_MAX_TABLES ) {
+				wp_send_json_error( [
+					'code'    => 'free_limit_reached',
+					'message' => sprintf(
+						/* translators: %d: maximum tables in Free plan */
+						__( 'Free plan limit reached (%d tables maximum). Please activate RoxyTable Pro in Settings.', 'roxytable' ),
+						\RoxyTable\Includes\License::FREE_MAX_TABLES
+					),
+				], 403 );
+				return;
+			}
 		}
 
 		$definition = $templates[ $template ];

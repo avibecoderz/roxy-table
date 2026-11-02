@@ -302,20 +302,55 @@ $standalone   = empty( $rt_layout_active );
 				</div>
 			</div>
 
+			<?php
+			$rt_is_pro       = ( ! class_exists( '\RoxyTable\Includes\License' ) || \RoxyTable\Includes\License::is_pro() );
+			$rt_license_data = \RoxyTable\Includes\License::get_license_data();
+			$rt_settings_url = admin_url( 'admin.php?page=roxytable-settings' );
+			?>
 			<div class="rt-dash-card rt-dash-pro">
 				<span class="rt-dash-pro-icon" aria-hidden="true">
 					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" /></svg>
 				</span>
-				<h3><?php esc_html_e( 'RoxyTable Pro', 'roxytable' ); ?></h3>
-				<p><?php esc_html_e( 'Unlock more features and supercharge your data management.', 'roxytable' ); ?></p>
-				<ul>
-					<li><?php esc_html_e( 'Advanced table features', 'roxytable' ); ?></li>
-					<li><?php esc_html_e( 'More import/export options', 'roxytable' ); ?></li>
-					<li><?php esc_html_e( 'Priority support', 'roxytable' ); ?></li>
-				</ul>
-				<a class="rt-dash-btn rt-dash-btn-outline rt-dash-btn-block rt-dash-pro-btn" href="<?php echo esc_url( $pro_upgrade_url ); ?>" target="_blank" rel="noopener noreferrer">
-					<?php esc_html_e( 'Upgrade Now →', 'roxytable' ); ?>
-				</a>
+				<?php if ( $rt_is_pro ) : ?>
+					<div style="display:flex;align-items:center;gap:8px;">
+						<h3 style="margin:0;"><?php esc_html_e( 'RoxyTable Pro', 'roxytable' ); ?></h3>
+						<span class="rt-license-badge rt-license-badge-active" style="font-size:0.7rem;padding:2px 8px;"><?php esc_html_e( 'ACTIVE', 'roxytable' ); ?></span>
+					</div>
+					<p>
+						<?php
+						if ( 'lifetime' === $rt_license_data['expires_at'] ) {
+							esc_html_e( 'Lifetime Pro license active. All premium features are unlocked.', 'roxytable' );
+						} else {
+							echo esc_html(
+								sprintf(
+									/* translators: %s: license expiration date */
+									__( 'Annual Pro license valid through %s.', 'roxytable' ),
+									$rt_license_data['expires_at']
+								)
+							);
+						}
+						?>
+					</p>
+					<ul>
+						<li><?php esc_html_e( 'Custom JavaScript & CSS enabled', 'roxytable' ); ?></li>
+						<li><?php esc_html_e( 'Unlimited tables & rows', 'roxytable' ); ?></li>
+						<li><?php esc_html_e( 'Sheet filters, CSV export & Priority support', 'roxytable' ); ?></li>
+					</ul>
+					<a class="rt-dash-btn rt-dash-btn-outline rt-dash-btn-block rt-dash-pro-btn" href="<?php echo esc_url( $rt_settings_url ); ?>">
+						<?php esc_html_e( 'Manage License →', 'roxytable' ); ?>
+					</a>
+				<?php else : ?>
+					<h3><?php esc_html_e( 'RoxyTable Pro', 'roxytable' ); ?></h3>
+					<p><?php esc_html_e( 'Unlock more features and supercharge your data management.', 'roxytable' ); ?></p>
+					<ul>
+						<li><?php esc_html_e( 'Advanced table features (Custom JS, CSS & Filter Columns)', 'roxytable' ); ?></li>
+						<li><?php esc_html_e( 'More import/export options (Unlimited tables, rows & CSV)', 'roxytable' ); ?></li>
+						<li><?php esc_html_e( 'Priority support & updates', 'roxytable' ); ?></li>
+					</ul>
+					<a class="rt-dash-btn rt-dash-btn-outline rt-dash-btn-block rt-dash-pro-btn" href="<?php echo esc_url( $rt_settings_url ); ?>">
+						<?php esc_html_e( 'Activate or Upgrade →', 'roxytable' ); ?>
+					</a>
+				<?php endif; ?>
 			</div>
 		</aside>
 	</div>

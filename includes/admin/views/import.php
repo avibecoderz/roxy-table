@@ -365,43 +365,58 @@ $stored       = \RoxyTable\Includes\Admin\Import_Handler::get_stored_data();
 								<path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.43l1.004-.827c.292-.24.437-.613.43-.991a6.936 6.936 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z" />
 								<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
 							</svg>
-							<?php _e( 'Advanced Settings', 'roxytable' ); ?>
+							<?php echo esc_html( __( 'Advanced Settings', 'roxytable' ) ); ?> <span class="rt-pro-badge">PRO</span>
 							<svg class="rt-chevron" xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;margin-left:auto;flex-shrink:0;transition:transform 0.2s;" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
 							</svg>
 						</summary>
 						<div class="rt-advanced-body">
+							<?php $is_pro = ( ! class_exists( '\RoxyTable\Includes\License' ) || \RoxyTable\Includes\License::is_pro() ); ?>
+							<?php if ( ! $is_pro ) : ?>
+								<div class="rt-pro-locked-banner">
+									<div>
+										<strong><?php echo esc_html( __( 'RoxyTable Pro Feature:', 'roxytable' ) ); ?></strong>
+										<?php echo esc_html( __( 'Custom CSS, Custom JavaScript, and Server-Side processing require an active RoxyTable Pro license.', 'roxytable' ) ); ?>
+									</div>
+									<a href="<?php echo esc_url( admin_url( 'admin.php?page=roxytable-settings' ) ); ?>" class="rt-dash-btn rt-dash-btn-primary" style="white-space: nowrap;">
+										<?php echo esc_html( __( 'Activate Pro License →', 'roxytable' ) ); ?>
+									</a>
+								</div>
+							<?php endif; ?>
 							<div class="rt-field-group">
-								<label class="rt-label" for="rt-custom-css"><?php _e( 'Custom CSS', 'roxytable' ); ?></label>
+								<label class="rt-label" for="rt-custom-css"><?php echo esc_html( __( 'Custom CSS', 'roxytable' ) ); ?></label>
 								<textarea id="rt-custom-css" name="rt_custom_css" class="rt-field rt-code-field" rows="4"
-									placeholder="<?php echo esc_attr( "/* Your custom CSS here */\n.roxytable-table th { background: #1e293b; }" ); ?>"></textarea>
-								<p class="rt-hint"><?php _e( 'CSS scoped to this table only. Will be injected on pages containing the shortcode.', 'roxytable' ); ?></p>
+									placeholder="<?php echo esc_attr( "/* Your custom CSS here */\n.roxytable-table th { background: #1e293b; }" ); ?>" <?php echo ! $is_pro ? 'readonly="readonly"' : ''; ?>></textarea>
+								<p class="rt-hint"><?php echo esc_html( __( 'CSS scoped to this table only. Will be injected on pages containing the shortcode.', 'roxytable' ) ); ?></p>
 							</div>
 
-							<?php $can_edit_js = current_user_can( 'manage_options' ) && current_user_can( 'unfiltered_html' ); ?>
+							<?php
+							$is_pro      = ( ! class_exists( '\RoxyTable\Includes\License' ) || \RoxyTable\Includes\License::is_pro() );
+							$can_edit_js = $is_pro && current_user_can( 'manage_options' ) && current_user_can( 'unfiltered_html' );
+							?>
 							<div class="rt-field-group" style="margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--border-color);">
 								<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
-									<label class="rt-label" for="rt-custom-js" style="margin: 0;"><?php _e( 'Custom JavaScript', 'roxytable' ); ?></label>
+									<label class="rt-label" for="rt-custom-js" style="margin: 0;"><?php echo esc_html( __( 'Custom JavaScript', 'roxytable' ) ); ?></label>
 									<label class="rt-toggle-label">
 										<span class="rt-toggle-switch">
 											<input type="checkbox" id="rt-custom-js-enabled" name="rt_custom_js_enabled" value="1" checked="checked" <?php echo ! $can_edit_js ? 'disabled="disabled"' : ''; ?> />
 											<span class="rt-toggle-slider"></span>
 										</span>
-										<span class="rt-toggle-text"><?php _e( 'Enable Custom JavaScript', 'roxytable' ); ?></span>
+										<span class="rt-toggle-text"><?php echo esc_html( __( 'Enable Custom JavaScript', 'roxytable' ) ); ?></span>
 									</label>
 								</div>
 								<textarea id="rt-custom-js" name="rt_custom_js" class="rt-field rt-code-field" rows="5"
 									placeholder="<?php echo esc_attr( "// Your custom JavaScript here\n// Available variables: table, container, tableId, settings\nconsole.log('RoxyTable loaded:', tableId);" ); ?>"
 									<?php echo ! $can_edit_js ? 'readonly="readonly"' : ''; ?>></textarea>
-								<p class="rt-hint"><?php _e( 'Add custom JavaScript to customize table behavior and appearance on the frontend. Executed after the table HTML is rendered (variables available: table, container, tableId, settings). Does not execute in the WordPress admin area.', 'roxytable' ); ?></p>
+								<p class="rt-hint"><?php echo esc_html( __( 'Add custom JavaScript to customize table behavior and appearance on the frontend. Executed after the table HTML is rendered (variables available: table, container, tableId, settings). Does not execute in the WordPress admin area.', 'roxytable' ) ); ?></p>
 								<?php if ( ! $can_edit_js ) : ?>
-									<p class="rt-hint" style="color: #b45309;"><?php _e( 'Your account requires the unfiltered_html capability to modify Custom JavaScript.', 'roxytable' ); ?></p>
+									<p class="rt-hint" style="color: #b45309;"><?php echo esc_html( __( 'Your account requires the unfiltered_html capability to modify Custom JavaScript.', 'roxytable' ) ); ?></p>
 								<?php endif; ?>
 							</div>
 
 							<label class="rt-checkbox-label" style="margin-top: 8px;">
-								<input type="checkbox" name="rt_server_side" value="1" />
-								<span><?php _e( 'Enable server-side processing (recommended for tables over 10,000 rows)', 'roxytable' ); ?></span>
+								<input type="checkbox" name="rt_server_side" value="1" <?php echo ! $is_pro ? 'disabled="disabled"' : ''; ?> />
+								<span><?php echo esc_html( __( 'Enable server-side processing (recommended for tables over 10,000 rows)', 'roxytable' ) ); ?></span>
 							</label>
 						</div>
 					</details>

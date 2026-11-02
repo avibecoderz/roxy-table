@@ -4,6 +4,16 @@ All notable changes to the RoxyTable WordPress plugin will be documented in this
 
 ## [Unreleased]
 
+## [1.0.12] - 2026-11-02
+
+### Added
+- **RoxyTable Pro Licensing & Single-Site Domain Binding**: Added `RoxyTable\Includes\License` with domain-bound annual and lifetime license key verification (`ROXY-PRO-YYYYMMDD-DOMHEX-SIGNHEX`).
+- **Pro Feature Gate**: Gated Frontend Filter Columns, Table-based & Sheet-based Filtering, Column Visibility Toggle, CSV Export, Server-Side Processing, Obsidian/Emerald Templates, Unlimited Tables/Rows, and Custom CSS/JS to RoxyTable Pro.
+- **Advanced Custom CSS & JavaScript Execution**: Added scoped Custom CSS injection and loop-safe `MutationObserver` Custom JavaScript execution across both frontend tables and the admin preview screen.
+
+### Security & Standards
+- **WPCS & Security Hardening**: Hardened domain normalization (`home_url()`), capability checks (`manage_options`), nonce verification, and backend settings enforcement.
+
 ## [1.0.11] - 2026-10-29
 
 ### Changed

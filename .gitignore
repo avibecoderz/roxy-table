@@ -1,4 +1,40 @@
+# Composer binary & test caches
 composer.phar
+.phpunit.result.cache
+
+# Environment, secrets & local vendor config (never publish to GitHub)
+.env
+.env.*
+wp-config.php
+vendor-config.php
+*secret*
+*license-keys*
+*.key
+*.pem
+
+# Local debug & scratch files
+tests/render_tables.php
+tests/rendered_tables.html
+scratch/
+*.bak
+*.tmp
+*.sql
+
+# Release archives & node dependencies
+node_modules/
+*.zip
+*.tar.gz
+
+# OS, IDE & AI assistant files
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
+.gemini/
+.agent/
+.agents/
+*.swp
+*~
+
+# Logs
 *.log

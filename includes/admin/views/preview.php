@@ -29,6 +29,9 @@ $preview_url  = admin_url( 'admin.php?page=roxytable-tables&action=preview&id=' 
 $settings     = is_array( $table['settings'] ?? null )
 	? $table['settings']
 	: ( json_decode( (string) ( $table['settings'] ?? '' ), true ) ?: [] );
+if ( class_exists( '\RoxyTable\Includes\License' ) ) {
+	$settings = \RoxyTable\Includes\License::enforce_settings_gate( $settings );
+}
 $template_slug  = ! empty( $settings['template'] ) ? sanitize_html_class( $settings['template'] ) : '';
 $template_class = isset( $template_class ) ? $template_class : ( $template_slug ? ' roxytable-template-' . $template_slug : '' );
 $stats          = Table_Repository::get_column_statistics( $table_id );
