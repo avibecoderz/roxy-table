@@ -285,30 +285,57 @@
 }
 
 /* Sticky Header on Scroll (RoxyTable Pro) */
+/* The table header (th) stays pinned to the top of the viewport when scrolling down the table on the page */
+:root {
+	--rt-sticky-top-offset: 0px;
+}
+
+/* When the WordPress top admin bar is present, offset sticky headers so they stick right below the admin bar */
+body.admin-bar {
+	--rt-sticky-top-offset: 32px;
+}
+
+@media screen and (max-width: 782px) {
+	body.admin-bar {
+		--rt-sticky-top-offset: 46px;
+	}
+}
+
 .rt-has-sticky-header {
 	position: relative;
-	max-height: 70vh;
-	overflow-y: auto !important;
+	overflow-y: visible !important; /* Ensure table header can stick to the page viewport during normal page scrolling */
 }
 
-.rt-has-sticky-header .roxytable-table thead,
-.rt-has-sticky-header .roxytable-table thead tr {
-	position: sticky;
-	top: 0;
-	z-index: 10;
+/* Sticky th cells pinned to the top */
+.rt-has-sticky-header .roxytable-table thead th,
+.rt-has-sticky-header table.roxytable-table thead th {
+	position: -webkit-sticky !important;
+	position: sticky !important;
+	top: var(--rt-sticky-top-offset) !important;
+	z-index: 20 !important;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+	background-clip: padding-box;
 }
 
-.rt-has-sticky-header .roxytable-table thead th {
-	position: sticky;
-	top: 0;
-	z-index: 11;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-}
-
-/* Fallback solid background for default template sticky header so scrolled body rows don't show through */
+/* Ensure solid opaque background on sticky th cells across all templates so scrolled body rows never bleed through */
 .rt-has-sticky-header:not([class*="roxytable-template-"]) .roxytable-table thead th,
 .rt-has-sticky-header.roxytable-template-default .roxytable-table thead th {
 	background-color: #10b981 !important;
+	color: #ffffff !important;
+}
+
+.rt-has-sticky-header.roxytable-template-indigo .roxytable-table thead th {
+	background-color: #6366f1 !important;
+	color: #ffffff !important;
+}
+
+.rt-has-sticky-header.roxytable-template-obsidian .roxytable-table thead th {
+	background-color: #1e293b !important;
+	color: #ffffff !important;
+}
+
+.rt-has-sticky-header.roxytable-template-emerald .roxytable-table thead th {
+	background-color: #059669 !important;
 	color: #ffffff !important;
 }
 /* =========================================================
