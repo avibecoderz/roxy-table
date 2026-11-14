@@ -182,6 +182,7 @@ class Frontend {
 		$settings = ( class_exists( '\RoxyTable\Includes\License' ) ? ( class_exists( '\RoxyTable\Includes\License' ) ? \RoxyTable\Includes\License::enforce_settings_gate( $settings ) : $settings ) : $settings );
 		$template       = ! empty( $settings['template'] ) ? sanitize_html_class( $settings['template'] ) : '';
 		$template_class = $template ? ' roxytable-template-' . $template : '';
+		$sticky_class   = ! empty( $settings['sticky_header'] ) ? ' rt-has-sticky-header' : '';
 
 		$sheets = isset( $settings['sheets'] ) && is_array( $settings['sheets'] ) ? $settings['sheets'] : [];
 
@@ -196,7 +197,7 @@ class Frontend {
 			unset( $frontend_settings['custom_js'] );
 		}
 
-		$html = '<div class="roxytable-embed' . esc_attr( $template_class ) . '"'
+		$html = '<div class="roxytable-embed' . esc_attr( $template_class . $sticky_class ) . '"'
 			. ' data-table-id="' . esc_attr( $table_id ) . '"'
 			. ' data-total-rows="' . esc_attr( $total_rows ) . '"'
 			. ' data-nonce="' . esc_attr( wp_create_nonce( 'roxytable_filter_nonce' ) ) . '"'
@@ -215,7 +216,7 @@ class Frontend {
 		$html .= '<table class="roxytable-table" style="width:100%;border-collapse:collapse;">';
 		$html .= '<thead><tr>';
 		foreach ( $columns as $col ) {
-			$html .= '<th style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:left;">' . esc_html( $col['name'] ) . '</th>';
+			$html .= '<th style="padding:8px;text-align:left;">' . esc_html( $col['name'] ) . '</th>';
 		}
 		$html .= '</tr></thead>';
 
@@ -392,7 +393,7 @@ class Frontend {
 		$html      = '<tbody>';
 
 		for ( $r = 0; $r < $row_count; $r++ ) {
-			$html .= '<tr style="border-bottom:1px solid #f1f5f9;">';
+			$html .= '<tr class="rt-table-row">';
 			for ( $c = 0; $c < $col_count; $c++ ) {
 				$cell_value = (string) ( $matrix[ $r ][ $c ] ?? '' );
 

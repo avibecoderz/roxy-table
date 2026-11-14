@@ -3,6 +3,67 @@
 
     function textOf(node){ return (node && node.textContent || '').trim(); }
 
+    /**
+     * Normalise a cell value for group detection.
+     *
+     * Merged-cell placeholders (#rowspan# / #colspan#) and whitespace-only
+     * cells count as empty, so they continue the group above them.
+     *
+     * @param {*} value Raw cell text.
+     * @return {string} Trimmed value, or '' for a continuation cell.
+     */
+    function normalizeGroupValue(value){
+        var clean = String(value === null || value === undefined ? '' : value).trim();
+        return (clean === '#rowspan#' || clean === '#colspan#') ? '' : clean;
+    }
+
+    /**
+     * Build "fill-down" group keys for one column.
+     *
+     * A group starts at every non-empty value and continues through the
+     * following empty cells until the next non-empty value in the same column.
+     * Each position gets the value of the group it belongs to. Filtering a
+     * serial-number column for "1" therefore matches the "1" row and all of its
+     * blank continuation rows, and stops before the row that holds "2".
+     * Rows above the first non-empty value get '' and never match a filter.
+     *
+     * Runs in O(n) and never throws for empty, single-item or invalid input.
+     *
+     * @param {Array<string>} values Column values in original document order.
+     * @return {Array<string>} Group key for every position in values.
+     */
+    function buildGroupKeys(values){
+        var keys = [];
+        var current = '';
+        if (!values || typeof values.length !== 'number') return keys;
+        for (var i = 0; i < values.length; i++){
+            var value = normalizeGroupValue(values[i]);
+            if (value !== '') current = value;
+            keys.push(current);
+        }
+        return keys;
+    }
+
+    /**
+     * Read the trimmed text of one column for every row.
+     *
+     * @param {Array<HTMLTableRowElement>} rows     Table rows in original order.
+     * @param {number}                     colIndex Zero-based column index.
+     * @return {Array<string>} Cell text per row ('' when the cell is missing).
+     */
+    function columnValues(rows, colIndex){
+        return rows.map(function(tr){
+            return (tr && tr.children && tr.children[colIndex]) ? textOf(tr.children[colIndex]) : '';
+        });
+    }
+
+    // Expose the pure grouping helpers for Custom JavaScript and automated tests.
+    if (typeof window !== 'undefined') {
+        window.RoxyTable = window.RoxyTable || {};
+        window.RoxyTable.buildGroupKeys = buildGroupKeys;
+        window.RoxyTable.normalizeGroupValue = normalizeGroupValue;
+    }
+
     function tableToData(table){
         var headers = Array.from(table.querySelectorAll('thead th')).map(textOf);
         var rows = Array.from(table.querySelectorAll('tbody tr')).map(function(tr){
@@ -191,6 +252,10 @@
         var configuredRowsPerPage = parseInt(settings.rows_per_page, 10);
         if (isNaN(configuredRowsPerPage) || configuredRowsPerPage < 0) configuredRowsPerPage = 25;
         var paginationEnabled = featureEnabled('pagination', true) && configuredRowsPerPage !== 0;
+        var stickyHeaderEnabled = featureEnabled('sticky_header', false);
+        if (stickyHeaderEnabled) {
+            embed.classList.add('rt-has-sticky-header');
+        }
         var visibilityEnabled = featureEnabled('visibility', true);
         var exportEnabled = featureEnabled('export', false);
 
@@ -261,18 +326,32 @@
         if (tableFilteringEnabled) {
             var filterStats = {};
             stats.forEach(function(st){ filterStats[parseInt(st.index, 10)] = st; });
+
+            var columnCategories = data.headers.map(function(_, colIndex){
+                var st = filterStats[colIndex];
+                var fromDom = Array.from(new Set(
+                    data.rows.map(function(row){ return normalizeGroupValue(row[colIndex]); })
+                        .filter(function(value){ return value !== ''; })
+                )).sort(function(a, b){
+                    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+                });
+                if (filterColumnsConfigured || !st || !Array.isArray(st.categories) || !st.categories.length) {
+                    return fromDom;
+                }
+                return st.categories.map(normalizeGroupValue).filter(function(v){ return v !== ''; });
+            });
+
             var columnsToFilter = filterColumnsConfigured
                 ? selectedFilterColumns
-                : stats.filter(function(st){
-                    return !isSerialCol(st.name) && st.categories && st.categories.length > 1 && st.categories.length <= 300;
-                }).map(function(st){ return parseInt(st.index, 10); });
+                : data.headers.map(function(_, idx){ return idx; }).filter(function(colIndex){
+                    var cats = columnCategories[colIndex] || [];
+                    return cats.length > 1 && cats.length <= 300;
+                });
 
             columnsToFilter.forEach(function(colIndex){
                 if (colIndex < 0 || colIndex >= data.headers.length) return;
                 var st = filterStats[colIndex] || { index: colIndex, name: data.headers[colIndex] };
-                var categories = filterColumnsConfigured
-                    ? Array.from(new Set(data.rows.map(function(row){ return row[colIndex] || ''; }).filter(function(value){ return value !== ''; }))).sort(function(a, b){ return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }); })
-                    : (st.categories || []);
+                var categories = columnCategories[colIndex] || [];
                 var sel = createControl('select', { class: 'rt-filter-select' });
                 sel.dataset.col = String(colIndex);
                 var def = document.createElement('option');
@@ -413,16 +492,81 @@
         var rowsPerPage = configuredRowsPerPage;
         var sortIndex = -1; var sortDir = 1;
 
+        // Fill-down group keys per filter column, built on first use and aligned by index with allRows.
+        var groupKeyCache = {};
+
+        /**
+         * Return the group keys for a column, building and caching them on first use.
+         *
+         * allRows always stays in original document order (sorting only reorders
+         * the filtered copy), so group boundaries stay correct after sorting.
+         *
+         * @param {number} colIndex Zero-based column index.
+         * @return {Array<string>} Group key per row in allRows.
+         */
+        function getGroupKeys(colIndex){
+            if (!Object.prototype.hasOwnProperty.call(groupKeyCache, colIndex)) {
+                groupKeyCache[colIndex] = buildGroupKeys(columnValues(allRows, colIndex));
+            }
+            return groupKeyCache[colIndex];
+        }
+
+        /**
+         * Discard cached group keys. Call whenever allRows is replaced.
+         */
+        function resetGroupKeys(){
+            groupKeyCache = {};
+        }
+
+        /**
+         * Collect the dropdown filters that currently have a value.
+         *
+         * Empty selections and invalid column indexes are skipped, so they never
+         * hide rows or throw.
+         *
+         * @return {Array<{col: number, value: string, keys: Array<string>}>} Active filters.
+         */
+        function getActiveCategoricalFilters(){
+            var active = [];
+            if (!tableFilteringEnabled) return active;
+            catSelects.forEach(function(s){
+                var value = normalizeGroupValue(s.value);
+                var colI = parseInt(s.dataset.col, 10);
+                if (value === '' || isNaN(colI) || colI < 0) return;
+                active.push({ col: colI, value: value, keys: getGroupKeys(colI) });
+            });
+            return active;
+        }
+
+        /**
+         * Build the placeholder row shown when no rows match the active filters.
+         *
+         * The row is never added to allRows or filtered, so pagination counts,
+         * CSV export and filtering ignore it.
+         *
+         * @return {HTMLTableRowElement} Placeholder row.
+         */
+        function buildEmptyStateRow(){
+            var tr = document.createElement('tr');
+            tr.className = 'rt-no-results';
+            var td = document.createElement('td');
+            td.colSpan = Math.max(1, data.headers.length);
+            td.style.padding = '16px';
+            td.style.textAlign = 'center';
+            td.style.color = '#64748b';
+            td.textContent = allRows.length ? 'No matching records found.' : 'No data available in this table.';
+            tr.appendChild(td);
+            return tr;
+        }
+
         function addRuleRow(){
             var rowDiv = document.createElement('div');
             rowDiv.className = 'rt-rule-row';
 
             var colSel = createControl('select', {});
             data.headers.forEach(function(h, idx){
-                if (!isSerialCol(h)) {
-                    var opt = document.createElement('option'); opt.value = idx; opt.textContent = h;
-                    colSel.appendChild(opt);
-                }
+                var opt = document.createElement('option'); opt.value = idx; opt.textContent = h;
+                colSel.appendChild(opt);
             });
 
             var opSel = createControl('select', {});
@@ -576,22 +720,27 @@
             var rules = sheetFilteringEnabled ? getActiveSheetRules() : [];
             var isOr = matchSelect.value === 'or';
 
-            filtered = allRows.filter(function(tr){
-                var cells = Array.from(tr.children).map(textOf);
+            var activeCatFilters = getActiveCategoricalFilters();
 
-                // 1. Search text
+            filtered = allRows.filter(function(tr, rowIndex){
+                // 1. Group-aware categorical dropdowns: a row matches when it belongs to
+                //    the selected value's group (its own value, or blank cells beneath it).
+                for (var f = 0; f < activeCatFilters.length; f++) {
+                    if (activeCatFilters[f].keys[rowIndex] !== activeCatFilters[f].value) return false;
+                }
+
+                // Read cell text only when search or sheet rules need it, resolving blank
+                // continuation cells to their column group value so grouped rows stay together.
+                var cells = (q !== '' || rules.length > 0) ? Array.from(tr.children).map(function(td, colI){
+                    var raw = normalizeGroupValue(textOf(td));
+                    return raw !== '' ? raw : (getGroupKeys(colI)[rowIndex] || '');
+                }) : [];
+
+                // 2. Search text
                 if (q !== '') {
                     var hasSearch = cells.some(function(c){ return c.toLowerCase().indexOf(q) !== -1; });
                     if (!hasSearch) return false;
                 }
-
-                // 2. Categorical dropdowns
-                var catPass = !tableFilteringEnabled || catSelects.every(function(s){
-                    if (s.value === '') return true;
-                    var colI = parseInt(s.dataset.col, 10);
-                    return cells[colI] === s.value;
-                });
-                if (!catPass) return false;
 
                 // 3. Multi-condition sheet rules
                 if (rules.length > 0) {
@@ -689,7 +838,6 @@
             allRows = [];
             (respData.rows || []).forEach(function(rObj){
                 var tr = document.createElement('tr');
-                tr.style.borderBottom = '1px solid #f1f5f9';
                 (rObj.cells || []).forEach(function(cellText, colI){
                     var td = document.createElement('td');
                     td.style.padding = '8px';
@@ -701,6 +849,7 @@
                 });
                 allRows.push(tr);
             });
+            resetGroupKeys();
             filtered = allRows.slice();
             currentPage = 1;
             renderPage();
@@ -720,6 +869,7 @@
             var start = paginationEnabled ? (currentPage - 1) * rowsPerPage : 0;
             var visibleRows = paginationEnabled ? filtered.slice(start, start + rowsPerPage) : filtered;
             visibleRows.forEach(function(r){ tbody.appendChild(r); });
+            if (!filtered.length) tbody.appendChild(buildEmptyStateRow());
             applyColumnVisibility();
             renderPager();
         }

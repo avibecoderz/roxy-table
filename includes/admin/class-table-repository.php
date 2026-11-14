@@ -569,7 +569,7 @@ class Table_Repository {
 					if ( ! isset( $stats[ $idx ] ) ) {
 						continue;
 					}
-					$clean_val = trim( wp_strip_all_tags( (string) $val ) );
+					$clean_val = self::normalize_group_value( $val );
 					if ( '' === $clean_val ) {
 						continue;
 					}
@@ -592,18 +592,17 @@ class Table_Repository {
 		} while ( count( $batch ) === self::ROW_CHUNK_SIZE );
 
 		foreach ( $stats as $idx => &$st ) {
-			if ( self::is_serial_column( $st['name'] ) ) {
-				$st['is_numeric'] = false;
-				$st['categories'] = [];
-				$st['min']        = null;
-				$st['max']        = null;
-				continue;
-			}
-
 			if ( ! empty( $col_values[ $idx ] ) ) {
 				$cats = array_keys( $col_values[ $idx ] );
 				natcasesort( $cats );
 				$st['categories'] = array_values( $cats );
+			}
+
+			if ( self::is_serial_column( $st['name'] ) ) {
+				$st['is_numeric'] = false;
+				$st['min']        = null;
+				$st['max']        = null;
+				continue;
 			}
 
 			if ( ! empty( $col_nums[ $idx ] ) && ( count( $col_nums[ $idx ] ) >= count( $st['categories'] ) * 0.5 || 'number' === $st['type'] ) ) {
@@ -629,7 +628,22 @@ class Table_Repository {
 	}
 
 	/**
+	 * Normalise a stored cell for fill-down group detection.
+	 *
+	 * @param mixed $value Raw stored cell value.
+	 * @return string Plain-text value, or '' for empty and merged-cell placeholder cells.
+	 */
+	private static function normalize_group_value( $value ) : string {
+		$plain = trim( wp_strip_all_tags( (string) $value ) );
+		return ( '#rowspan#' === $plain || '#colspan#' === $plain ) ? '' : $plain;
+	}
+
+	/**
 	 * Get filtered rows for AJAX requests supporting text search, categorical filters, range sliders, and multi-condition sheet rules.
+	 *
+	 * Categorical filters are group-aware: a row whose cell is empty belongs to the
+	 * nearest non-empty value above it in the same column, so selecting "1" returns
+	 * the "1" row plus its blank continuation rows and stops before the next value.
 	 *
 	 * @param int   $table_id Table ID.
 	 * @param array $args Filter arguments.
@@ -660,8 +674,9 @@ class Table_Repository {
 			\ARRAY_A
 		) ?: [];
 
-		$total_rows = count( $raw_rows );
-		$matched    = [];
+		$total_rows   = count( $raw_rows );
+		$matched      = [];
+		$group_values = [];
 
 		foreach ( $raw_rows as $row ) {
 			$cells = json_decode( (string) $row['data'], true );
@@ -670,13 +685,23 @@ class Table_Repository {
 			}
 			$cells = array_values( $cells );
 
-			// 1. Global search match
+			// Track fill-down group values across all columns before any filter can skip this row.
+			$effective_cells = [];
+			foreach ( $cells as $col_idx => $raw_val ) {
+				$col_idx    = (int) $col_idx;
+				$norm_val   = self::normalize_group_value( $raw_val );
+				if ( '' !== $norm_val ) {
+					$group_values[ $col_idx ] = $norm_val;
+				}
+				$effective_cells[ $col_idx ] = '' !== $norm_val ? $norm_val : ( $group_values[ $col_idx ] ?? '' );
+			}
+
+			// 1. Global search match (including inherited group values for continuation rows)
 			if ( '' !== $search ) {
 				$search_match = false;
 				$lower_q      = mb_strtolower( $search );
-				foreach ( $cells as $cell ) {
-					$plain = mb_strtolower( wp_strip_all_tags( (string) $cell ) );
-					if ( str_contains( $plain, $lower_q ) ) {
+				foreach ( $effective_cells as $plain_cell ) {
+					if ( str_contains( mb_strtolower( $plain_cell ), $lower_q ) ) {
 						$search_match = true;
 						break;
 					}
@@ -695,7 +720,7 @@ class Table_Repository {
 						continue;
 					}
 					$allowed_arr = is_array( $allowed ) ? $allowed : [ (string) $allowed ];
-					$cell_val    = trim( wp_strip_all_tags( (string) ( $cells[ $c_idx ] ?? '' ) ) );
+					$cell_val    = $group_values[ $c_idx ] ?? '';
 					if ( ! in_array( $cell_val, $allowed_arr, true ) ) {
 						$cat_match = false;
 						break;
@@ -746,7 +771,7 @@ class Table_Repository {
 					$op    = (string) $rule['op'];
 					$target_val = isset( $rule['val'] ) ? (string) $rule['val'] : '';
 					$target_val2 = isset( $rule['val2'] ) ? (string) $rule['val2'] : '';
-					$cell_str   = trim( wp_strip_all_tags( (string) ( $cells[ $col_i ] ?? '' ) ) );
+					$cell_str   = $effective_cells[ $col_i ] ?? self::normalize_group_value( $cells[ $col_i ] ?? '' );
 					$cell_num   = (float) str_replace( [ ',', '$', '€', '£', '%' ], '', $cell_str );
 
 					$r_pass = false;

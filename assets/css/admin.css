@@ -284,32 +284,152 @@
 	border-bottom: 0 !important;
 }
 
-/* Optional styles applied only to tables created from a design template. */
+/* Sticky Header on Scroll (RoxyTable Pro) */
+.rt-has-sticky-header {
+	position: relative;
+	max-height: 70vh;
+	overflow-y: auto !important;
+}
+
+.rt-has-sticky-header .roxytable-table thead,
+.rt-has-sticky-header .roxytable-table thead tr {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+}
+
+.rt-has-sticky-header .roxytable-table thead th {
+	position: sticky;
+	top: 0;
+	z-index: 11;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Fallback solid background for default template sticky header so scrolled body rows don't show through */
+.rt-has-sticky-header:not([class*="roxytable-template-"]) .roxytable-table thead th,
+.rt-has-sticky-header.roxytable-template-default .roxytable-table thead th {
+	background-color: #10b981 !important;
+	color: #ffffff !important;
+}
+/* =========================================================
+   RoxyTable Dotted Border System & Template Color Palettes
+   Dynamic, responsive dotted borders adapting to active template
+   ========================================================= */
+
+:root {
+	--rt-border-dotted-style: dotted;
+	--rt-border-dotted-width: 1.5px;
+	--rt-border-dotted-color: #cbd5e1;
+	--rt-border-dotted-radius: 8px;
+}
+
+/* Base Dotted Styling for all RoxyTable table elements */
+.roxytable-table,
+.roxytable-preview-table,
+.rt-dash-table {
+	border-collapse: separate !important;
+	border-spacing: 0 !important;
+	border: var(--rt-border-dotted-width) var(--rt-border-dotted-style) var(--rt-border-dotted-color) !important;
+	border-radius: var(--rt-border-dotted-radius);
+	overflow: hidden;
+	transition: border-color 0.2s ease;
+}
+
+/* Interior horizontal and vertical dotted dividers */
+.roxytable-table th,
+.roxytable-table td,
+.roxytable-preview-table th,
+.roxytable-preview-table td,
+.rt-dash-table th,
+.rt-dash-table td {
+	border-bottom: var(--rt-border-dotted-width) var(--rt-border-dotted-style) var(--rt-border-dotted-color) !important;
+	border-right: var(--rt-border-dotted-width) var(--rt-border-dotted-style) var(--rt-border-dotted-color) !important;
+	transition: border-color 0.2s ease, background-color 0.15s ease;
+}
+
+/* Remove outer right borders on final column cells to keep outer frame clean */
+.roxytable-table th:last-child,
+.roxytable-table td:last-child,
+.roxytable-preview-table th:last-child,
+.roxytable-preview-table td:last-child,
+.rt-dash-table th:last-child,
+.rt-dash-table td:last-child {
+	border-right: 0 !important;
+}
+
+/* Remove bottom dotted border on final body row so it merges seamlessly with bottom table frame */
+.roxytable-table tbody tr:last-child td,
+.roxytable-preview-table tbody tr:last-child td,
+.rt-dash-table tbody tr:last-child td {
+	border-bottom: 0 !important;
+}
+
+/* Template 1: Modern Indigo - Dynamic Dotted Adaptation */
+.roxytable-template-indigo {
+	--rt-border-dotted-color: #a5b4fc;
+}
 .roxytable-template-indigo .roxytable-table thead th {
 	background: #6366f1 !important;
 	color: #ffffff !important;
+	border-bottom-color: #818cf8 !important;
+	border-right-color: rgba(255, 255, 255, 0.3) !important;
 }
 .roxytable-template-indigo .roxytable-table tbody tr:nth-child(even) td {
 	background: #eef2ff;
 }
-.roxytable-template-indigo .roxytable-table,
-.roxytable-template-indigo .roxytable-table th,
-.roxytable-template-indigo .roxytable-table td {
-	border-color: #c7d2fe !important;
+.roxytable-template-indigo .roxytable-table tbody tr:hover td {
+	background: #e0e7ff;
+}
+
+/* Template 2: Minimalist Dark (Obsidian) - Dynamic Dotted Adaptation */
+.roxytable-template-obsidian {
+	--rt-border-dotted-color: #475569;
+}
+.roxytable-template-obsidian .roxytable-table {
+	background: #0f172a;
+	color: #f1f5f9;
 }
 .roxytable-template-obsidian .roxytable-table thead th {
 	background: #1e293b !important;
 	color: #ffffff !important;
+	border-bottom-color: #64748b !important;
+	border-right-color: rgba(255, 255, 255, 0.2) !important;
+}
+.roxytable-template-obsidian .roxytable-table tbody tr td {
+	color: #f1f5f9;
 }
 .roxytable-template-obsidian .roxytable-table tbody tr:nth-child(even) td {
-	background: #f8fafc;
+	background: #1e293b;
+}
+.roxytable-template-obsidian .roxytable-table tbody tr:hover td {
+	background: #334155;
+}
+
+/* Template 3: Forest Emerald - Dynamic Dotted Adaptation */
+.roxytable-template-emerald {
+	--rt-border-dotted-color: #6ee7b7;
 }
 .roxytable-template-emerald .roxytable-table thead th {
 	background: #059669 !important;
 	color: #ffffff !important;
+	border-bottom-color: #34d399 !important;
+	border-right-color: rgba(255, 255, 255, 0.3) !important;
 }
 .roxytable-template-emerald .roxytable-table tbody tr:nth-child(even) td {
 	background: #ecfdf5;
+}
+.roxytable-template-emerald .roxytable-table tbody tr:hover td {
+	background: #d1fae5;
+}
+
+/* Default / Classic Template: Clean Slate Dotted */
+.roxytable-template-default,
+.roxytable-embed:not([class*="roxytable-template-"]) {
+	--rt-border-dotted-color: #cbd5e1;
+}
+.roxytable-template-default .roxytable-table thead th,
+.roxytable-embed:not([class*="roxytable-template-"]) .roxytable-table thead th {
+	border-right-color: rgba(255, 255, 255, 0.35) !important;
 }
 
 /* WordPress layout overrides for clean interface */

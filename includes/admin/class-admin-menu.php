@@ -299,6 +299,7 @@ class Admin_Menu {
 				$settings_partial['table_filtering'] = ! empty( $_POST['rt_feat_table_filter'] );
 				$settings_partial['sort']            = ! empty( $_POST['rt_feat_sort'] );
 				$settings_partial['pagination']      = ! empty( $_POST['rt_feat_pagination'] );
+				$settings_partial['sticky_header']   = ! empty( $_POST['rt_feat_sticky_header'] );
 				$settings_partial['visibility']      = ! empty( $_POST['rt_feat_visibility'] );
 				$settings_partial['export']          = ! empty( $_POST['rt_feat_export'] );
 				$rows_per_page = intval( $_POST['rt_rows_per_page'] ?? 25 );
@@ -422,6 +423,7 @@ class Admin_Menu {
 			'table_filtering'   => ! isset( $_POST['rt_feat_table_filter'] ) || ! empty( $_POST['rt_feat_table_filter'] ),
 			'sort'              => ! empty( $_POST['rt_feat_sort'] ),
 			'pagination'        => ! empty( $_POST['rt_feat_pagination'] ),
+			'sticky_header'     => ! empty( $_POST['rt_feat_sticky_header'] ),
 			'visibility'        => ! empty( $_POST['rt_feat_visibility'] ),
 			'export'            => ! empty( $_POST['rt_feat_export'] ),
 			'rows_per_page'     => $rows_per_page,
@@ -1105,6 +1107,7 @@ class Admin_Menu {
 			$settings_partial['table_filtering'] = ! empty( $source['rt_feat_table_filter'] );
 			$settings_partial['sort']            = ! empty( $source['rt_feat_sort'] );
 			$settings_partial['pagination']      = ! empty( $source['rt_feat_pagination'] );
+			$settings_partial['sticky_header']   = ! empty( $source['rt_feat_sticky_header'] );
 			$settings_partial['visibility']      = ! empty( $source['rt_feat_visibility'] );
 			$settings_partial['export']          = ! empty( $source['rt_feat_export'] );
 			$rows_per_page = intval( $source['rt_rows_per_page'] ?? 25 );

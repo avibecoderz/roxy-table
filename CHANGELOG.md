@@ -4,6 +4,12 @@ All notable changes to the RoxyTable WordPress plugin will be documented in this
 
 ## [Unreleased]
 
+## [1.0.13] - 2026-11-14
+
+### Added
+- **Pro Sticky Headers on Scroll**: Pinned table headers during table and page scrolling with high-visibility solid background fills matching the active table template.
+- **Dynamic Dotted Border Line System**: Modern, responsive dotted table border lines (`border: 1.5px dotted var(--rt-border-dotted-color)`) that dynamically adapt to the active template palette (Classic Slate, Indigo Clean, Obsidian Dark, and Forest Emerald).
+- **Consecutive-Row Group-Aware Filtering**: Group-aware ("fill-down") filtering engine across frontend and live admin previews, preserving blank continuation rows underneath parent grouped values (e.g., serial numbers, departments) until the next distinct value.
 ## [1.0.12] - 2026-11-02
 
 ### Added

@@ -331,6 +331,7 @@ $stored       = \RoxyTable\Includes\Admin\Import_Handler::get_stored_data();
 								'rt_feat_table_filter' => [ 'label' => __( 'Table-based filtering', 'roxytable' ),   'default' => true ],
 								'rt_feat_sort'         => [ 'label' => __( 'Enable sort', 'roxytable' ),             'default' => true ],
 								'rt_feat_pagination'   => [ 'label' => __( 'Enable pagination', 'roxytable' ),       'default' => true ],
+								'rt_feat_sticky_header' => [ 'label' => __( 'Sticky header on scroll', 'roxytable' ), 'default' => false, 'pro' => true ],
 								'rt_feat_visibility'   => [ 'label' => __( 'Column visibility toggle', 'roxytable' ),'default' => true ],
 								'rt_feat_export'       => [ 'label' => __( 'Enable export (CSV)', 'roxytable' ),    'default' => false ],
 							];

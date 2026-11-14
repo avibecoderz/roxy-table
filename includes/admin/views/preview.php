@@ -84,7 +84,7 @@ if ( ( ! isset( $settings['custom_js_enabled'] ) || ! empty( $settings['custom_j
 				<thead>
 					<tr>
 						<?php foreach ( $columns as $col ) : ?>
-							<th style="padding:12px 14px;background:#f3f4f6;border-bottom:1px solid var(--border-color);text-align:left;font-size:0.8125rem;color:var(--text-muted);"><?php echo esc_html( $col['name'] ); ?></th>
+							<th style="padding:12px 14px;background:#f3f4f6;text-align:left;font-size:0.8125rem;color:var(--text-muted);"><?php echo esc_html( $col['name'] ); ?></th>
 						<?php endforeach; ?>
 					</tr>
 				</thead>
@@ -93,7 +93,7 @@ if ( ( ! isset( $settings['custom_js_enabled'] ) || ! empty( $settings['custom_j
 						<tr><td colspan="<?php echo esc_attr( count( $columns ) ); ?>" style="padding:24px;text-align:center;color:var(--text-muted);"><?php esc_html_e( 'No rows found.', 'roxytable' ); ?></td></tr>
 					<?php else : ?>
 						<?php foreach ( $rows as $r ) : ?>
-							<tr class="rt-preview-row" style="border-bottom:1px solid var(--border-color);">
+							<tr class="rt-preview-row">
 								<?php
 								foreach ( $r['cells'] as $cell_index => $cell ) :
 									$cell_text    = trim( wp_strip_all_tags( (string) $cell ) );

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoxyTable Dotted Border & Template Design System Verification</title>
+<link rel="stylesheet" href="../assets/css/admin.css">
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #f8fafc; }
+.test-section { margin-bottom: 40px; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+h2 { margin-top: 0; font-size: 1.1rem; color: #1e293b; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+pre { background: #0f172a; color: #38bdf8; padding: 16px; border-radius: 8px; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<div class="test-section">
+	<h2>1. Default / Classic Table (Slate Dotted Borders)</h2>
+	<div class="roxytable-embed" id="test-default">
+		<table class="roxytable-table">
+			<thead><tr><th>ID</th><th>University</th><th>Course</th><th>Status</th></tr></thead>
+			<tbody>
+				<tr><td>1</td><td>Abia State University</td><td>Mechanical Engineering</td><td>Accredited</td></tr>
+				<tr><td>2</td><td>University of Lagos</td><td>Computer Science</td><td>Accredited</td></tr>
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<div class="test-section">
+	<h2>2. Modern Indigo Template (Indigo Dotted Borders: #a5b4fc)</h2>
+	<div class="roxytable-embed roxytable-template-indigo" id="test-indigo">
+		<table class="roxytable-table">
+			<thead><tr><th>ID</th><th>University</th><th>Course</th><th>Status</th></tr></thead>
+			<tbody>
+				<tr><td>1</td><td>Abia State University</td><td>Mechanical Engineering</td><td>Accredited</td></tr>
+				<tr><td>2</td><td>University of Lagos</td><td>Computer Science</td><td>Accredited</td></tr>
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<div class="test-section">
+	<h2>3. Minimalist Dark Template (Obsidian Dotted Borders: #475569)</h2>
+	<div class="roxytable-embed roxytable-template-obsidian" id="test-obsidian">
+		<table class="roxytable-table">
+			<thead><tr><th>ID</th><th>University</th><th>Course</th><th>Status</th></tr></thead>
+			<tbody>
+				<tr><td>1</td><td>Abia State University</td><td>Mechanical Engineering</td><td>Accredited</td></tr>
+				<tr><td>2</td><td>University of Lagos</td><td>Computer Science</td><td>Accredited</td></tr>
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<div class="test-section">
+	<h2>4. Forest Emerald Template (Emerald Dotted Borders: #6ee7b7)</h2>
+	<div class="roxytable-embed roxytable-template-emerald" id="test-emerald">
+		<table class="roxytable-table">
+			<thead><tr><th>ID</th><th>University</th><th>Course</th><th>Status</th></tr></thead>
+			<tbody>
+				<tr><td>1</td><td>Abia State University</td><td>Mechanical Engineering</td><td>Accredited</td></tr>
+				<tr><td>2</td><td>University of Lagos</td><td>Computer Science</td><td>Accredited</td></tr>
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<div class="test-section">
+	<h2>5. Admin Live Preview & Dashboard Tables</h2>
+	<table class="roxytable-preview-table" id="test-preview">
+		<thead><tr><th>ID</th><th>Preview Header</th><th>Type</th></tr></thead>
+		<tbody>
+			<tr><td>1</td><td>Sample Row A</td><td>Data</td></tr>
+			<tr><td>2</td><td>Sample Row B</td><td>Data</td></tr>
+		</tbody>
+	</table>
+
+	<table class="rt-dash-table" id="test-dash" style="margin-top:20px;">
+		<thead><tr><th>Table Name</th><th>Shortcode</th><th>Created</th></tr></thead>
+		<tbody>
+			<tr><td>Students 2026</td><td>[roxytable id="1"]</td><td>Today</td></tr>
+		</tbody>
+	</table>
+</div>
+
+<pre id="test-results"></pre>
+
+<script>
+window.addEventListener('DOMContentLoaded', function() {
+	var results = [];
+	var failures = 0;
+
+	function check(desc, cond, info) {
+		if (cond) {
+			results.push('PASS: ' + desc);
+		} else {
+			failures++;
+			results.push('FAIL: ' + desc + ' (info: ' + (info || '') + ')');
+		}
+	}
+
+	function rgbToHex(rgb) {
+		if (!rgb || rgb.indexOf('rgb') === -1) return rgb;
+		var nums = rgb.match(/\d+/g);
+		if (!nums || nums.length < 3) return rgb;
+		return '#' + ((1 << 24) + (parseInt(nums[0]) << 16) + (parseInt(nums[1]) << 8) + parseInt(nums[2])).toString(16).slice(1);
+	}
+
+	// 1. Check Default Table
+	var defTable = document.querySelector('#test-default .roxytable-table');
+	var defStyle = window.getComputedStyle(defTable);
+	check('Default table border style is dotted', defStyle.borderTopStyle === 'dotted', defStyle.borderTopStyle);
+	check('Default table border collapse is separate', defStyle.borderCollapse === 'separate', defStyle.borderCollapse);
+
+	var defCell = defTable.querySelector('tbody td');
+	var defCellStyle = window.getComputedStyle(defCell);
+	check('Default cell border bottom is dotted', defCellStyle.borderBottomStyle === 'dotted', defCellStyle.borderBottomStyle);
+	check('Default cell border right is dotted', defCellStyle.borderRightStyle === 'dotted', defCellStyle.borderRightStyle);
+
+	// 2. Check Indigo Template
+	var indigoCell = document.querySelector('#test-indigo .roxytable-table tbody td');
+	var indigoCellStyle = window.getComputedStyle(indigoCell);
+	check('Indigo cell border bottom is dotted', indigoCellStyle.borderBottomStyle === 'dotted', indigoCellStyle.borderBottomStyle);
+	check('Indigo cell border color adapts to #a5b4fc', rgbToHex(indigoCellStyle.borderBottomColor) === '#a5b4fc', rgbToHex(indigoCellStyle.borderBottomColor));
+
+	// 3. Check Obsidian Template
+	var obsCell = document.querySelector('#test-obsidian .roxytable-table tbody td');
+	var obsCellStyle = window.getComputedStyle(obsCell);
+	check('Obsidian cell border bottom is dotted', obsCellStyle.borderBottomStyle === 'dotted', obsCellStyle.borderBottomStyle);
+	check('Obsidian cell border color adapts to #475569', rgbToHex(obsCellStyle.borderBottomColor) === '#475569', rgbToHex(obsCellStyle.borderBottomColor));
+
+	// 4. Check Emerald Template
+	var emCell = document.querySelector('#test-emerald .roxytable-table tbody td');
+	var emCellStyle = window.getComputedStyle(emCell);
+	check('Emerald cell border bottom is dotted', emCellStyle.borderBottomStyle === 'dotted', emCellStyle.borderBottomStyle);
+	check('Emerald cell border color adapts to #6ee7b7', rgbToHex(emCellStyle.borderBottomColor) === '#6ee7b7', rgbToHex(emCellStyle.borderBottomColor));
+
+	// 5. Check Preview and Dashboard tables
+	var prevTable = document.querySelector('#test-preview');
+	var prevStyle = window.getComputedStyle(prevTable);
+	check('Preview table has dotted border', prevStyle.borderTopStyle === 'dotted', prevStyle.borderTopStyle);
+
+	var dashTable = document.querySelector('#test-dash');
+	var dashStyle = window.getComputedStyle(dashTable);
+	check('Dashboard table has dotted border', dashStyle.borderTopStyle === 'dotted', dashStyle.borderTopStyle);
+
+	// Final result string
+	results.push(failures === 0 ? 'RESULT: ALL DOTTED BORDER TESTS PASSED' : 'RESULT: ' + failures + ' FAILURES');
+	document.getElementById('test-results').textContent = results.join('\n');
+});
+</script>
+</body>
+</html>
+

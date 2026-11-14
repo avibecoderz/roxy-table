@@ -456,36 +456,78 @@ function createCustomDropdown( column, table ) {
 	return wrapper;
 }
 
+/**
+ * Render filtered rows in the admin live preview table using consecutive-row
+ * ("fill-down") group boundaries so blank continuation rows stay attached to
+ * the non-empty group value above them until the next distinct value appears.
+ *
+ * @param {HTMLTableElement} table Target preview table element.
+ */
 function renderPreviewRows( table ) {
 	const searchInput = document.getElementById( 'roxytable-preview-search' );
 	const filterContainer = document.getElementById( 'roxytable-preview-filters' );
 	const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
 	const selects = filterContainer ? Array.from( filterContainer.querySelectorAll( 'select' ) ) : [];
+	const customDropdowns = filterContainer ? Array.from( filterContainer.querySelectorAll( '.rt-dropdown' ) ) : [];
 	const tbody = table.querySelector( 'tbody' );
 	if ( ! tbody ) return;
 
-	const rows = Array.from( tbody.querySelectorAll( 'tr' ) );
-	rows.forEach( ( row ) => {
+	const rows = Array.from( tbody.querySelectorAll( 'tr:not(.rt-no-results-row)' ) );
+	const colCount = table.querySelectorAll( 'thead th' ).length;
+
+	// Build fill-down group keys per column in a single O(R * C) pass.
+	const currentGroupByCol = new Array( colCount ).fill( '' );
+	const rowGroupMatrix = rows.map( ( row ) => {
 		const cells = Array.from( row.querySelectorAll( 'td' ) );
+		return cells.map( ( cell, colIdx ) => {
+			const raw = ( cell ? cell.textContent : '' ).trim();
+			const clean = ( raw === '#rowspan#' || raw === '#colspan#' ) ? '' : raw;
+			if ( clean !== '' ) {
+				currentGroupByCol[ colIdx ] = clean;
+			}
+			return currentGroupByCol[ colIdx ] || '';
+		} );
+	} );
+
+	// Collect active column filters from both native <select> and custom .rt-dropdown controls.
+	const activeFilters = [];
+	selects.forEach( ( select ) => {
+		const selectedValue = ( select.value || '' ).trim();
+		const index = parseInt( select.dataset.columnIndex || select.dataset.col || '', 10 );
+		if ( selectedValue !== '' && ! isNaN( index ) && index >= 0 ) {
+			activeFilters.push( { index, value: selectedValue } );
+		}
+	} );
+	customDropdowns.forEach( ( dd ) => {
+		const toggle = dd.querySelector( '.rt-dropdown-toggle' );
+		const selectedValue = toggle && toggle.dataset.value ? toggle.dataset.value.trim() : '';
+		const index = parseInt( dd.dataset.columnIndex || '', 10 );
+		if ( selectedValue !== '' && ! isNaN( index ) && index >= 0 ) {
+			activeFilters.push( { index, value: selectedValue } );
+		}
+	} );
+
+	rows.forEach( ( row, rowIndex ) => {
+		const cells = Array.from( row.querySelectorAll( 'td' ) );
+		const effectiveRow = rowGroupMatrix[ rowIndex ] || [];
 		let matchesSearch = query === '';
 		let matchesFilters = true;
 
-		cells.forEach( ( cell ) => {
+		cells.forEach( ( cell, colIdx ) => {
 			cell.classList.remove( 'rt-search-match' );
 			if ( query === '' ) return;
-			const text = cell.textContent.toLowerCase();
-			if ( text.includes( query ) ) {
+			const directText = cell.textContent.toLowerCase();
+			const groupText = ( effectiveRow[ colIdx ] || '' ).toLowerCase();
+			if ( directText.includes( query ) ) {
 				matchesSearch = true;
 				cell.classList.add( 'rt-search-match' );
+			} else if ( groupText.includes( query ) ) {
+				matchesSearch = true;
 			}
 		} );
 
-		selects.forEach( ( select ) => {
-			const selectedValue = select.value;
-			if ( selectedValue === '' ) return;
-			const index = parseInt( select.dataset.columnIndex, 10 );
-			const cell = cells[ index ];
-			if ( ! cell || cell.textContent.trim() !== selectedValue ) {
+		activeFilters.forEach( ( f ) => {
+			if ( ( effectiveRow[ f.index ] || '' ) !== f.value ) {
 				matchesFilters = false;
 			}
 		} );
@@ -493,7 +535,7 @@ function renderPreviewRows( table ) {
 		row.style.display = matchesSearch && matchesFilters ? '' : 'none';
 	} );
 
-	updateNoResultsBanner( tbody, query );
+	updateNoResultsBanner( tbody, query || ( activeFilters.length ? activeFilters[0].value : '' ) );
 }
 
 function updateNoResultsBanner( tbody, query ) {

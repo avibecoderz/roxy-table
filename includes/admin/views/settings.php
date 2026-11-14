@@ -241,7 +241,7 @@ $icon_bg_style       = $is_pro ? 'background: rgba(16, 185, 129, 0.12); color: #
 							<li><?php esc_html_e( 'Unlimited tables & unlimited rows per spreadsheet', 'roxytable' ); ?></li>
 							<li><?php esc_html_e( 'Custom JavaScript Engine (live date/expiry calculations & DOM automation)', 'roxytable' ); ?></li>
 							<li><?php esc_html_e( 'Scoped Custom CSS per table', 'roxytable' ); ?></li>
-							<li><?php esc_html_e( 'Frontend Filter Columns, Sheet-based filter rules, Column visibility toggle & CSV Export', 'roxytable' ); ?></li>
+							<li><?php esc_html_e( 'Sticky Header on Scroll, Frontend Filter Columns, Sheet-based filter rules, Column visibility & CSV Export', 'roxytable' ); ?></li>
 							<li><?php esc_html_e( 'Premium Templates (Dark Minimal & Emerald Grid) + Server-Side AJAX (10,000+ rows)', 'roxytable' ); ?></li>
 						</ul>
 					</div>

@@ -44,6 +44,7 @@ $feat_sheet_filt   = isset( $table_settings['sheet_filtering'] ) ? (bool) $table
 $feat_table_filt   = isset( $table_settings['table_filtering'] ) ? (bool) $table_settings['table_filtering'] : true;
 $feat_sort         = isset( $table_settings['sort'] ) ? (bool) $table_settings['sort'] : true;
 $feat_pagination   = isset( $table_settings['pagination'] ) ? (bool) $table_settings['pagination'] : true;
+$feat_sticky_hdr   = isset( $table_settings['sticky_header'] ) ? (bool) $table_settings['sticky_header'] : false;
 $feat_visibility   = isset( $table_settings['visibility'] ) ? (bool) $table_settings['visibility'] : true;
 $feat_export       = isset( $table_settings['export'] ) ? (bool) $table_settings['export'] : false;
 $rows_per_page     = intval( $table_settings['rows_per_page'] ?? 25 );
@@ -187,6 +188,13 @@ $saved_filter_columns = isset( $table_settings['filter_columns'] ) && is_array( 
 								</label>
 								<label class="rt-toggle-label">
 									<span class="rt-toggle-switch">
+										<input type="checkbox" name="rt_feat_sticky_header" value="1" <?php checked( $is_pro && $feat_sticky_hdr, true ); ?> <?php echo ! $is_pro ? 'disabled="disabled"' : ''; ?> />
+										<span class="rt-toggle-slider"></span>
+									</span>
+									<span class="rt-toggle-text"><?php esc_html_e( 'Sticky header on scroll', 'roxytable' ); ?> <span class="rt-pro-badge">PRO</span></span>
+								</label>
+								<label class="rt-toggle-label">
+									<span class="rt-toggle-switch">
 										<input type="checkbox" name="rt_feat_visibility" value="1" <?php checked( $is_pro && $feat_visibility, true ); ?> <?php echo ! $is_pro ? 'disabled="disabled"' : ''; ?> />
 										<span class="rt-toggle-slider"></span>
 									</span>
@@ -228,7 +236,7 @@ $saved_filter_columns = isset( $table_settings['filter_columns'] ) && is_array( 
 										$column_stats    = $filter_stats[ $column_index ] ?? [];
 										$column_name     = strtolower( trim( $column['name'] ) );
 										$is_serial       = in_array( $column_name, [ '#', 's/n', 'sn', 's.n.', 's.n', 'serial', 'serial no', 'serial number', 'no.', 'no', 'index', 'sl', 'sl.no', 'sl. no.' ], true );
-										$default_filter  = ! $is_serial && count( $column_stats['categories'] ?? [] ) > 1 && count( $column_stats['categories'] ?? [] ) <= 300;
+										$default_filter  = count( $column_stats['categories'] ?? [] ) > 1 && count( $column_stats['categories'] ?? [] ) <= 300;
 										$filter_selected = null === $saved_filter_columns ? $default_filter : in_array( $column_index, $saved_filter_columns, true );
 										?>
 										<label class="rt-checkbox-label">

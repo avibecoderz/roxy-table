@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RoxyTable group-aware filter browser test</title>
+</head>
+<body>
+<!--
+	Browser regression test for group-aware ("fill-down") column filtering in assets/js/frontend.js.
+	Run through tests/group_filter_browser_test.php (headless Chrome / Edge), or open this file directly in any modern browser.
+-->
+
+<!-- Table A: grouped rows like a merged-cell spreadsheet import (S/N, University, Course, Start Date, Category). -->
+<div class="roxytable-embed" id="embed-a" data-table-id="1" data-total-rows="9"
+	data-settings='{"search":true,"sort":true,"pagination":true,"rows_per_page":5,"table_filtering":true,"sheet_filtering":true,"visibility":false,"export":false,"filter_columns":[0,2,3,4]}'>
+	<table class="roxytable-table">
+		<thead><tr><th>S/N</th><th>University</th><th>Course</th><th>Start Date</th><th>Category</th></tr></thead>
+		<tbody>
+			<tr><td>1</td><td>Abia State University</td><td>Mechanical Engineering</td><td>01/01/2024</td><td>Public</td></tr>
+			<tr><td></td><td></td><td>Civil Engineering</td><td></td><td></td></tr>
+			<tr><td> </td><td></td><td>Elect/Elect Engineering</td><td></td><td></td></tr>
+			<tr><td>#rowspan#</td><td></td><td>Computer Engineering</td><td></td><td></td></tr>
+			<tr><td>2</td><td>Abiola Ajimobi Technical University</td><td>Agricultural Engineering</td><td>05/03/2025</td><td>State</td></tr>
+			<tr><td></td><td></td><td>Biomedical Engineering</td><td></td><td></td></tr>
+			<tr><td></td><td></td><td>Chemical Engineering</td><td></td><td></td></tr>
+			<tr><td>3</td><td>Covenant University</td><td>Architecture</td><td>01/01/2024</td><td>Private</td></tr>
+			<tr><td></td><td></td><td>Building Technology</td><td></td><td></td></tr>
+		</tbody>
+	</table>
+</div>
+
+<!-- Table B: single-row table. -->
+<div class="roxytable-embed" id="embed-b" data-table-id="2" data-total-rows="1"
+	data-settings='{"pagination":true,"rows_per_page":25,"table_filtering":true,"filter_columns":[0]}'>
+	<table class="roxytable-table">
+		<thead><tr><th>S/N</th><th>Name</th></tr></thead>
+		<tbody><tr><td>1</td><td>Only row</td></tr></tbody>
+	</table>
+</div>
+
+<!-- Table C: 900 generated rows (300 groups of 3) to check correctness and speed at scale. -->
+<div class="roxytable-embed" id="embed-c" data-table-id="3" data-total-rows="900"
+	data-settings='{"pagination":true,"rows_per_page":25,"table_filtering":true,"filter_columns":[0]}'>
+	<table class="roxytable-table">
+		<thead><tr><th>S/N</th><th>Item</th></tr></thead>
+		<tbody id="big-body"></tbody>
+	</table>
+</div>
+
+<pre id="rt-test-output"></pre>
+
+<script>
+	// Generate Table C rows before frontend.js enhances the tables.
+	(function () {
+		var body = document.getElementById( 'big-body' );
+		var html = '';
+		for ( var g = 1; g <= 300; g++ ) {
+			html += '<tr><td>' + g + '</td><td>Item ' + g + '-a</td></tr>';
+			html += '<tr><td></td><td>Item ' + g + '-b</td></tr>';
+			html += '<tr><td></td><td>Item ' + g + '-c</td></tr>';
+		}
+		body.innerHTML = html;
+	}());
+
+	window.rtErrors = [];
+	window.addEventListener( 'error', function ( e ) {
+		window.rtErrors.push( String( e.message || e ) );
+	} );
+</script>
+<script src="../assets/js/frontend.js"></script>
+<script>
+	( function () {
+		var results = [];
+		var failures = 0;
+
+		/**
+		 * Record one assertion result.
+		 *
+		 * @param {string}  name Assertion description.
+		 * @param {boolean} ok   Whether the assertion passed.
+		 * @param {string}  info Extra detail shown on failure.
+		 */
+		function check( name, ok, info ) {
+			if ( ! ok ) {
+				failures++;
+			}
+			results.push( ( ok ? 'PASS: ' : 'FAIL: ' ) + name + ( ok ? '' : ' -> ' + ( info || '' ) ) );
+		}
+
+		/**
+		 * Return the dropdown filter for a column inside an embed.
+		 */
+		function selectFor( embed, col ) {
+			return embed.querySelector( '.rt-filter-select[data-col="' + col + '"]' );
+		}
+
+		/**
+		 * Return trimmed text for one column of each data row currently in the tbody.
+		 */
+		function visibleColumn( embed, col ) {
+			return Array.prototype.slice.call( embed.querySelectorAll( 'tbody tr:not(.rt-no-results)' ) ).map( function ( tr ) {
+				return ( tr.children[ col ] ? tr.children[ col ].textContent : '' ).trim();
+			} );
+		}
+
+		/**
+		 * Return the pager summary text.
+		 */
+		function pagerText( embed ) {
+			var pager = embed.querySelector( '.rt-pager' );
+			return pager ? pager.textContent : '';
+		}
+
+		/**
+		 * Set select values, fire change events and wait for the 100 ms filter debounce.
+		 */
+		function setFilters( embed, values, done ) {
+			Object.keys( values ).forEach( function ( col ) {
+				var sel = selectFor( embed, col );
+				if ( sel ) {
+					sel.value = values[ col ];
+					sel.dispatchEvent( new Event( 'change' ) );
+				}
+			} );
+			setTimeout( done, 250 );
+		}
+
+		/**
+		 * Set the search input value and wait for the debounce.
+		 */
+		function setSearch( embed, value, done ) {
+			var input = embed.querySelector( '.rt-search-container input' );
+			input.value = value;
+			input.dispatchEvent( new Event( 'input' ) );
+			setTimeout( done, 250 );
+		}
+
+		/**
+		 * Join array values for compact comparisons.
+		 */
+		function j( arr ) {
+			return arr.join( '|' );
+		}
+
+		var a = document.getElementById( 'embed-a' );
+		var b = document.getElementById( 'embed-b' );
+		var c = document.getElementById( 'embed-c' );
+
+		// Pure helper unit checks.
+		var keys = window.RoxyTable && window.RoxyTable.buildGroupKeys;
+		check( 'buildGroupKeys is exposed', typeof keys === 'function', typeof keys );
+		if ( typeof keys === 'function' ) {
+			check( 'fill-down keys', j( keys( [ '1', '', ' ', '2', '#rowspan#', '#colspan#', '3' ] ) ) === '1|1|1|2|2|2|3', j( keys( [ '1', '', ' ', '2', '#rowspan#', '#colspan#', '3' ] ) ) );
+			check( 'leading blanks belong to no group', j( keys( [ '', '', 'A', '' ] ) ) === '||A|A', j( keys( [ '', '', 'A', '' ] ) ) );
+			check( 'empty input', keys( [] ).length === 0, '' );
+			check( 'null input does not throw', keys( null ).length === 0, '' );
+			check( 'single value', j( keys( [ 'X' ] ) ) === 'X', '' );
+			var many = [];
+			for ( var i = 0; i < 50000; i++ ) {
+				many.push( i % 5 === 0 ? String( i ) : '' );
+			}
+			var t0 = performance.now();
+			var manyKeys = keys( many );
+			var elapsed = performance.now() - t0;
+			check( '50,000-value grouping is correct', manyKeys[ 49999 ] === '49995', manyKeys[ 49999 ] );
+			results.push( 'INFO: 50,000-value grouping took ' + elapsed.toFixed( 2 ) + ' ms' );
+		}
+
+		var steps = [
+			function ( next ) {
+				check( 'filter dropdowns rendered', !! selectFor( a, 0 ) && !! selectFor( a, 2 ) && !! selectFor( a, 3 ) && !! selectFor( a, 4 ), '' );
+				setFilters( a, { 0: '1' }, next );
+			},
+			function ( next ) {
+				var courses = visibleColumn( a, 2 );
+				check( 'S/N = 1 shows its row and blank continuation rows', j( courses ) === 'Mechanical Engineering|Civil Engineering|Elect/Elect Engineering|Computer Engineering', j( courses ) );
+				check( 'S/N = 1 stops before S/N 2', courses.indexOf( 'Agricultural Engineering' ) === -1, j( courses ) );
+				setFilters( a, { 0: '2' }, next );
+			},
+			function ( next ) {
+				check( 'S/N = 2 group', j( visibleColumn( a, 2 ) ) === 'Agricultural Engineering|Biomedical Engineering|Chemical Engineering', j( visibleColumn( a, 2 ) ) );
+				setFilters( a, { 0: '3' }, next );
+			},
+			function ( next ) {
+				check( 'last group runs to the end of the table', j( visibleColumn( a, 2 ) ) === 'Architecture|Building Technology', j( visibleColumn( a, 2 ) ) );
+				setFilters( a, { 0: '', 4: 'Public' }, next );
+			},
+			function ( next ) {
+				check( 'category column groups', visibleColumn( a, 2 ).length === 4, j( visibleColumn( a, 2 ) ) );
+				setFilters( a, { 4: '', 3: '01/01/2024' }, next );
+			},
+			function ( next ) {
+				check( 'date column matches two separate groups (6 rows, paginated to 5)', visibleColumn( a, 2 ).length === 5 && pagerText( a ).indexOf( 'of 6' ) !== -1, visibleColumn( a, 2 ).length + ' / ' + pagerText( a ) );
+				setFilters( a, { 3: '', 2: 'Civil Engineering' }, next );
+			},
+			function ( next ) {
+				check( 'fully populated column still matches exact rows', j( visibleColumn( a, 2 ) ) === 'Civil Engineering', j( visibleColumn( a, 2 ) ) );
+				setFilters( a, { 2: 'Chemical Engineering', 0: '2' }, next );
+			},
+			function ( next ) {
+				check( 'combined filters (S/N 2 + Chemical)', j( visibleColumn( a, 2 ) ) === 'Chemical Engineering', j( visibleColumn( a, 2 ) ) );
+				setFilters( a, { 0: '1' }, next );
+			},
+			function ( next ) {
+				check( 'no matching rows shows empty-state row', visibleColumn( a, 2 ).length === 0 && !! a.querySelector( 'tbody tr.rt-no-results' ), a.querySelector( 'tbody' ).innerHTML.slice( 0, 120 ) );
+				setFilters( a, { 2: '' }, next );
+			},
+			function ( next ) {
+				setSearch( a, 'civil', next );
+			},
+			function ( next ) {
+				check( 'group filter + search', j( visibleColumn( a, 2 ) ) === 'Civil Engineering', j( visibleColumn( a, 2 ) ) );
+				setSearch( a, '', next );
+			},
+			function ( next ) {
+				// Sort by Course descending (two header clicks), then confirm the group filter still uses original order.
+				var th = a.querySelectorAll( 'thead th' )[ 2 ];
+				th.click();
+				th.click();
+				setTimeout( next, 250 );
+			},
+			function ( next ) {
+				var courses = visibleColumn( a, 2 );
+				check( 'group filter still correct after sorting', courses.length === 4 && j( courses.slice().sort() ) === j( [ 'Civil Engineering', 'Computer Engineering', 'Elect/Elect Engineering', 'Mechanical Engineering' ] ), j( courses ) );
+				check( 'sorting applied to filtered rows', courses[ 0 ] === 'Mechanical Engineering', j( courses ) );
+				setFilters( a, { 0: '' }, next );
+			},
+			function ( next ) {
+				check( 'clearing the filter restores all rows with pagination', visibleColumn( a, 2 ).length === 5 && pagerText( a ).indexOf( 'of 9' ) !== -1, pagerText( a ) );
+				setFilters( b, { 0: '1' }, next );
+			},
+			function ( next ) {
+				check( 'single-row table filter', j( visibleColumn( b, 1 ) ) === 'Only row', j( visibleColumn( b, 1 ) ) );
+				setFilters( c, { 0: '150' }, next );
+			},
+			function ( next ) {
+				check( '900-row table group filter', j( visibleColumn( c, 1 ) ) === 'Item 150-a|Item 150-b|Item 150-c', j( visibleColumn( c, 1 ) ) );
+				check( 'no JavaScript errors', window.rtErrors.length === 0, j( window.rtErrors ) );
+				next();
+			}
+		];
+
+		function run( index ) {
+			if ( index >= steps.length ) {
+				results.push( failures === 0 ? 'RESULT: ALL PASSED' : 'RESULT: ' + failures + ' FAILED' );
+				document.getElementById( 'rt-test-output' ).textContent = results.join( '\n' );
+				return;
+			}
+			try {
+				steps[ index ]( function () {
+					run( index + 1 );
+				} );
+			} catch ( err ) {
+				check( 'step ' + index + ' threw', false, String( err && err.message ) );
+				run( index + 1 );
+			}
+		}
+
+		window.addEventListener( 'load', function () {
+			setTimeout( function () {
+				run( 0 );
+			}, 50 );
+		} );
+	}() );
+</script>
+</body>
+</html>
+
