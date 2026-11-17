@@ -284,59 +284,458 @@
 	border-bottom: 0 !important;
 }
 
-/* Sticky Header on Scroll (RoxyTable Pro) */
-/* The table header (th) stays pinned to the top of the viewport when scrolling down the table on the page */
-:root {
-	--rt-sticky-top-offset: 0px;
+/* Static Table Headers */
+.roxytable-table thead th,
+.roxytable-preview-table thead th,
+table.roxytable-table thead th {
+	position: static !important;
 }
 
-/* When the WordPress top admin bar is present, offset sticky headers so they stick right below the admin bar */
-body.admin-bar {
-	--rt-sticky-top-offset: 32px;
+/* =========================================================
+   RoxyTable Table Watermark System
+   ========================================================= */
+.rt-has-watermark {
+	position: relative !important;
 }
 
-@media screen and (max-width: 782px) {
-	body.admin-bar {
-		--rt-sticky-top-offset: 46px;
+.rt-watermark-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	width: 100%;
+	height: 100%;
+	background-repeat: no-repeat;
+	background-position: center center;
+	background-size: min(420px, 60%);
+	pointer-events: none !important;
+	z-index: 5;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+/* Watermark uploader preview card styles in admin */
+.rt-watermark-card {
+	background: #ffffff;
+	border: 1px solid var(--border-color);
+	border-radius: var(--radius-lg);
+	padding: 20px;
+	margin-top: 20px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rt-watermark-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	gap: 16px;
+	margin-bottom: 18px;
+	padding-bottom: 14px;
+	border-bottom: 1px solid var(--border-color);
+}
+
+.rt-watermark-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 10px;
+	border-radius: 999px;
+	font-size: 0.75rem;
+	font-weight: 600;
+	flex-shrink: 0;
+	transition: all 0.2s ease;
+}
+
+.rt-watermark-badge.is-active {
+	background-color: #ecfdf5;
+	color: #059669;
+	border: 1px solid #a7f3d0;
+}
+
+.rt-watermark-badge.is-empty {
+	background-color: #f1f5f9;
+	color: #64748b;
+	border: 1px solid #e2e8f0;
+}
+
+.rt-watermark-badge-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background-color: currentColor;
+}
+
+.rt-watermark-layout {
+	display: grid;
+	grid-template-columns: 210px 1fr;
+	gap: 24px;
+	align-items: flex-start;
+}
+
+@media (max-width: 780px) {
+	.rt-watermark-layout {
+		grid-template-columns: 1fr;
 	}
 }
 
-.rt-has-sticky-header {
+.rt-watermark-preview-box {
+	width: 100%;
+	height: 150px;
+	border: 2px dashed #cbd5e1;
+	border-radius: 10px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: #f8fafc;
+	background-image: 
+		linear-gradient(45deg, #f1f5f9 25%, transparent 25%),
+		linear-gradient(-45deg, #f1f5f9 25%, transparent 25%),
+		linear-gradient(45deg, transparent 75%, #f1f5f9 75%),
+		linear-gradient(-45deg, transparent 75%, #f1f5f9 75%);
+	background-size: 14px 14px;
+	background-position: 0 0, 0 7px, 7px -7px, -7px 0px;
+	overflow: hidden;
 	position: relative;
-	overflow-y: visible !important; /* Ensure table header can stick to the page viewport during normal page scrolling */
+	cursor: pointer;
+	transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-/* Sticky th cells pinned to the top */
-.rt-has-sticky-header .roxytable-table thead th,
-.rt-has-sticky-header table.roxytable-table thead th {
-	position: -webkit-sticky !important;
-	position: sticky !important;
-	top: var(--rt-sticky-top-offset) !important;
-	z-index: 20 !important;
-	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
-	background-clip: padding-box;
+.rt-watermark-preview-box:hover {
+	border-color: var(--primary);
+	box-shadow: 0 0 0 3px rgba(29, 91, 240, 0.1);
 }
 
-/* Ensure solid opaque background on sticky th cells across all templates so scrolled body rows never bleed through */
-.rt-has-sticky-header:not([class*="roxytable-template-"]) .roxytable-table thead th,
-.rt-has-sticky-header.roxytable-template-default .roxytable-table thead th {
-	background-color: #10b981 !important;
-	color: #ffffff !important;
+.rt-watermark-preview-box.has-image {
+	border-style: solid;
+	border-color: #cbd5e1;
+	background-color: #ffffff;
 }
 
-.rt-has-sticky-header.roxytable-template-indigo .roxytable-table thead th {
-	background-color: #6366f1 !important;
-	color: #ffffff !important;
+.rt-watermark-preview-img {
+	max-width: 90%;
+	max-height: 90%;
+	object-fit: contain;
+	display: block;
+	transition: transform 0.2s;
 }
 
-.rt-has-sticky-header.roxytable-template-obsidian .roxytable-table thead th {
-	background-color: #1e293b !important;
-	color: #ffffff !important;
+.rt-watermark-preview-box:hover .rt-watermark-preview-img {
+	transform: scale(1.03);
 }
 
-.rt-has-sticky-header.roxytable-template-emerald .roxytable-table thead th {
-	background-color: #059669 !important;
-	color: #ffffff !important;
+.rt-watermark-hover-overlay {
+	position: absolute;
+	inset: 0;
+	background: rgba(15, 23, 42, 0.68);
+	color: #ffffff;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.2s ease;
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+}
+
+.rt-watermark-preview-box:hover .rt-watermark-hover-overlay {
+	opacity: 1;
+}
+
+.rt-watermark-preview-placeholder {
+	color: #94a3b8;
+	text-align: center;
+	padding: 12px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+	user-select: none;
+}
+
+.rt-watermark-icon-wrap {
+	width: 42px;
+	height: 42px;
+	border-radius: 50%;
+	background: #ffffff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #64748b;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+	margin-bottom: 2px;
+}
+
+.rt-watermark-empty-title {
+	font-size: 0.8125rem;
+	font-weight: 600;
+	color: var(--text-main);
+}
+
+.rt-watermark-empty-sub {
+	font-size: 0.6875rem;
+	color: var(--text-muted);
+}
+
+.rt-watermark-btn-row {
+	display: flex;
+	gap: 8px;
+	margin-top: 10px;
+}
+
+.rt-btn-watermark-choose {
+	flex: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	font-size: 0.8125rem;
+	font-weight: 600;
+	padding: 7px 12px;
+}
+
+.rt-btn-watermark-remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	font-size: 0.8125rem;
+	color: #dc2626 !important;
+	border-color: #fecaca !important;
+	background: #ffffff;
+	padding: 7px 10px;
+	transition: all 0.15s ease;
+}
+
+.rt-btn-watermark-remove:hover {
+	background-color: #fef2f2 !important;
+	border-color: #f87171 !important;
+}
+
+.rt-watermark-controls-col {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.rt-watermark-control-group {
+	display: flex;
+	flex-direction: column;
+}
+
+.rt-watermark-label-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 6px;
+}
+
+.rt-watermark-pill {
+	font-size: 0.8125rem;
+	font-weight: 700;
+	color: var(--primary);
+	background: #eaf1ff;
+	border: 1px solid #bfdbfe;
+	padding: 2px 10px;
+	border-radius: 999px;
+	min-width: 44px;
+	text-align: center;
+	letter-spacing: -0.01em;
+}
+
+/* Polished Slider */
+.rt-watermark-slider-wrap {
+	width: 100%;
+	padding: 4px 0;
+}
+
+input[type="range"].rt-watermark-slider {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 100%;
+	height: 6px;
+	border-radius: 999px;
+	background: linear-gradient(90deg, #bfdbfe 0%, #1d5bf0 100%);
+	outline: none;
+	cursor: pointer;
+	margin: 6px 0;
+	transition: background 0.2s ease;
+}
+
+input[type="range"].rt-watermark-slider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: #ffffff;
+	border: 3px solid #1d5bf0;
+	box-shadow: 0 1px 4px rgba(29, 91, 240, 0.35);
+	cursor: pointer;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="range"].rt-watermark-slider::-webkit-slider-thumb:hover {
+	transform: scale(1.18);
+	box-shadow: 0 0 0 4px rgba(29, 91, 240, 0.2);
+}
+
+input[type="range"].rt-watermark-slider::-moz-range-thumb {
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: #ffffff;
+	border: 3px solid #1d5bf0;
+	box-shadow: 0 1px 4px rgba(29, 91, 240, 0.35);
+	cursor: pointer;
+}
+
+/* Presets */
+.rt-watermark-presets-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+	flex-wrap: wrap;
+}
+
+.rt-presets-label {
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--text-muted);
+	margin-right: 2px;
+}
+
+.rt-preset-chip {
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: #475569;
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 6px;
+	padding: 3px 8px;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	line-height: 1.2;
+}
+
+.rt-preset-chip:hover {
+	background: #ffffff;
+	border-color: #cbd5e1;
+	color: var(--text-main);
+}
+
+.rt-preset-chip.is-active {
+	background: var(--primary);
+	border-color: var(--primary);
+	color: #ffffff;
+}
+
+/* Live Table Simulator */
+.rt-watermark-simulator-wrap {
+	margin-top: 10px;
+	border-top: 1px solid var(--border-color);
+	padding-top: 14px;
+}
+
+.rt-watermark-simulator-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 8px;
+}
+
+.rt-sim-title {
+	font-size: 0.8125rem;
+	font-weight: 600;
+	color: var(--text-main);
+}
+
+.rt-sim-hint {
+	font-size: 0.6875rem;
+	color: var(--text-muted);
+}
+
+.rt-sim-table-card {
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	background: #ffffff;
+	position: relative;
+	overflow: hidden;
+	min-height: 85px;
+}
+
+.rt-watermark-sim-overlay {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	background-repeat: no-repeat;
+	background-position: center center;
+	background-size: min(120px, 45%);
+	pointer-events: none !important;
+	z-index: 2;
+	transition: opacity 0.15s ease;
+}
+
+.rt-sim-table-content {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	font-size: 0.6875rem;
+}
+
+.rt-sim-row {
+	display: flex;
+	align-items: center;
+	padding: 6px 12px;
+	border-bottom: 1px solid #f1f5f9;
+}
+
+.rt-sim-row:last-child {
+	border-bottom: none;
+}
+
+.rt-sim-head-row {
+	background: #f8fafc;
+	font-weight: 700;
+	color: #64748b;
+	border-bottom: 1px solid #e2e8f0;
+	font-size: 0.6875rem;
+}
+
+.rt-sim-col {
+	display: flex;
+	align-items: center;
+}
+
+.rt-sim-bar {
+	height: 7px;
+	border-radius: 4px;
+	background: #cbd5e1;
+	opacity: 0.7;
+}
+
+.rt-sim-pill {
+	height: 12px;
+	width: 44px;
+	border-radius: 999px;
+}
+
+.rt-sim-green {
+	background: #dcfce7;
+	border: 1px solid #bbf7d0;
+}
+
+.rt-sim-blue {
+	background: #e0e7ff;
+	border: 1px solid #c7d2fe;
 }
 /* =========================================================
    RoxyTable Dotted Border System & Template Color Palettes
@@ -1001,9 +1400,7 @@ select.rt-field {
 
 /* Preview table styles */
 .roxytable-preview-table thead th {
-	position: sticky;
-	top: 0;
-	z-index: 2;
+	position: static;
 }
 .roxytable-preview-table tbody tr td {
 	padding: 12px 14px;

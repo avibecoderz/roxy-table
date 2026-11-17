@@ -489,7 +489,6 @@ class License {
 		$settings['sheet_filtering']   = false;
 		$settings['table_filtering']   = false;
 		$settings['filter_columns']    = [];
-		$settings['sticky_header']     = false;
 		$settings['visibility']        = false;
 		$settings['export']            = false;
 		$settings['server_side']       = false;

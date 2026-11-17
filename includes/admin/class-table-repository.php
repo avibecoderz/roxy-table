@@ -591,6 +591,11 @@ class Table_Repository {
 			$offset += self::ROW_CHUNK_SIZE;
 		} while ( count( $batch ) === self::ROW_CHUNK_SIZE );
 
+		$table_obj   = self::get_table( $table_id );
+		$settings    = is_array( $table_obj['settings'] ?? null ) ? $table_obj['settings'] : ( json_decode( (string) ( $table_obj['settings'] ?? '' ), true ) ?: [] );
+		$parse_opts  = isset( $settings['parse_options'] ) && is_array( $settings['parse_options'] ) ? $settings['parse_options'] : [];
+		$auto_detect = ! isset( $parse_opts['auto_detect_types'] ) || ! empty( $parse_opts['auto_detect_types'] );
+
 		foreach ( $stats as $idx => &$st ) {
 			if ( ! empty( $col_values[ $idx ] ) ) {
 				$cats = array_keys( $col_values[ $idx ] );
@@ -605,7 +610,7 @@ class Table_Repository {
 				continue;
 			}
 
-			if ( ! empty( $col_nums[ $idx ] ) && ( count( $col_nums[ $idx ] ) >= count( $st['categories'] ) * 0.5 || 'number' === $st['type'] ) ) {
+			if ( $auto_detect && ! empty( $col_nums[ $idx ] ) && ( count( $col_nums[ $idx ] ) >= count( $st['categories'] ) * 0.5 || 'number' === $st['type'] ) ) {
 				$st['is_numeric'] = true;
 				$st['min']        = min( $col_nums[ $idx ] );
 				$st['max']        = max( $col_nums[ $idx ] );
@@ -678,12 +683,21 @@ class Table_Repository {
 		$matched      = [];
 		$group_values = [];
 
+		$table_obj         = self::get_table( $table_id );
+		$settings          = is_array( $table_obj['settings'] ?? null ) ? $table_obj['settings'] : ( json_decode( (string) ( $table_obj['settings'] ?? '' ), true ) ?: [] );
+		$parse_opts        = isset( $settings['parse_options'] ) && is_array( $settings['parse_options'] ) ? $settings['parse_options'] : [];
+		$remove_empty_rows = ! isset( $parse_opts['remove_empty_rows'] ) || ! empty( $parse_opts['remove_empty_rows'] );
+
 		foreach ( $raw_rows as $row ) {
 			$cells = json_decode( (string) $row['data'], true );
 			if ( ! is_array( $cells ) ) {
 				$cells = [];
 			}
 			$cells = array_values( $cells );
+
+			if ( $remove_empty_rows && self::is_row_empty( $cells ) ) {
+				continue;
+			}
 
 			// Track fill-down group values across all columns before any filter can skip this row.
 			$effective_cells = [];
@@ -1489,6 +1503,215 @@ class Table_Repository {
 	}
 
 	/**
+	 * Check if all cells in a row are blank or empty.
+	 *
+	 * @param array $cells Row cells.
+	 * @return bool True if row is empty.
+	 */
+	public static function is_row_empty( array $cells ) : bool {
+		foreach ( $cells as $cell ) {
+			$val = trim( wp_strip_all_tags( (string) $cell ) );
+			if ( '' !== $val && '#rowspan#' !== $val && '#colspan#' !== $val ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Check if a column has no data across all rows and has an empty/default name.
+	 *
+	 * @param int   $col_index Column position index.
+	 * @param array $columns   All column definitions.
+	 * @param array $rows      All rows.
+	 * @return bool True if column has no content.
+	 */
+	public static function is_column_empty( int $col_index, array $columns, array $rows ) : bool {
+		$col_name = trim( (string) ( $columns[ $col_index ]['name'] ?? '' ) );
+		$is_default_or_blank = ( '' === $col_name || preg_match( '/^Column\s+[A-Z0-9]+$/i', $col_name ) );
+
+		foreach ( $rows as $row ) {
+			$cells = isset( $row['cells'] ) && is_array( $row['cells'] ) ? $row['cells'] : ( is_array( $row ) ? $row : [] );
+			$val   = trim( wp_strip_all_tags( (string) ( $cells[ $col_index ] ?? '' ) ) );
+			if ( '' !== $val && '#rowspan#' !== $val && '#colspan#' !== $val ) {
+				return false;
+			}
+		}
+
+		return $is_default_or_blank;
+	}
+
+	/**
+	 * Parse and normalize table columns and rows according to table parse options.
+	 *
+	 * @param array $columns Ordered column definitions.
+	 * @param array $rows Array of row records (each with 'cells').
+	 * @param array $parse_options Parse options map.
+	 * @return array ['columns' => array, 'rows' => array]
+	 */
+	public static function apply_parse_options( array $columns, array $rows, array $parse_options = [] ) : array {
+		if ( empty( $columns ) && empty( $rows ) ) {
+			return [
+				'columns' => $columns,
+				'rows'    => $rows,
+			];
+		}
+
+		$first_row_headers = ! isset( $parse_options['first_row_headers'] ) || ! empty( $parse_options['first_row_headers'] );
+		$remove_empty_rows = ! isset( $parse_options['remove_empty_rows'] ) || ! empty( $parse_options['remove_empty_rows'] );
+		$remove_empty_cols = ! isset( $parse_options['remove_empty_cols'] ) || ! empty( $parse_options['remove_empty_cols'] );
+		$auto_detect_types = ! isset( $parse_options['auto_detect_types'] ) || ! empty( $parse_options['auto_detect_types'] );
+
+		// 1. Remove empty rows
+		if ( $remove_empty_rows ) {
+			$rows = array_values( array_filter( $rows, static function( $row ) {
+				$cells = isset( $row['cells'] ) && is_array( $row['cells'] ) ? $row['cells'] : ( is_array( $row ) ? $row : [] );
+				return ! self::is_row_empty( $cells );
+			} ) );
+		}
+
+		// 2. Remove empty columns
+		if ( $remove_empty_cols && ! empty( $columns ) ) {
+			$non_empty_indices = [];
+			$col_count         = count( $columns );
+			for ( $c = 0; $c < $col_count; $c++ ) {
+				if ( ! self::is_column_empty( $c, $columns, $rows ) ) {
+					$non_empty_indices[] = $c;
+				}
+			}
+
+			if ( count( $non_empty_indices ) < $col_count && ! empty( $non_empty_indices ) ) {
+				$new_columns = [];
+				foreach ( $non_empty_indices as $new_pos => $old_c ) {
+					$col             = $columns[ $old_c ];
+					$col['position'] = $new_pos;
+					$new_columns[]   = $col;
+				}
+				$columns = $new_columns;
+
+				$rows = array_values( array_map( static function( $row ) use ( $non_empty_indices ) {
+					$cells     = isset( $row['cells'] ) && is_array( $row['cells'] ) ? $row['cells'] : ( is_array( $row ) ? $row : [] );
+					$new_cells = [];
+					foreach ( $non_empty_indices as $idx ) {
+						$new_cells[] = $cells[ $idx ] ?? '';
+					}
+					if ( isset( $row['cells'] ) ) {
+						$row['cells'] = $new_cells;
+						return $row;
+					}
+					return $new_cells;
+				}, $rows ) );
+			}
+		}
+
+		// 3. First row contains headers
+		if ( ! $first_row_headers && ! empty( $columns ) ) {
+			$header_row_cells = [];
+			$generic_columns  = [];
+			foreach ( $columns as $idx => $col ) {
+				$header_row_cells[]  = $col['name'];
+				$generic_col         = $col;
+				$generic_col['name'] = 'Column ' . self::int_to_column_letter( $idx + 1 );
+				$generic_columns[]   = $generic_col;
+			}
+
+			$first_cells = isset( $rows[0]['cells'] ) ? $rows[0]['cells'] : ( $rows[0] ?? [] );
+			if ( $first_cells !== $header_row_cells ) {
+				array_unshift( $rows, [
+					'id'       => 0,
+					'position' => 0,
+					'cells'    => $header_row_cells,
+				] );
+			}
+			$columns = $generic_columns;
+		}
+
+		// 4. Auto-detect types: if false, force text
+		if ( ! $auto_detect_types ) {
+			foreach ( $columns as &$col ) {
+				$col['type'] = 'text';
+			}
+			unset( $col );
+		}
+
+		return [
+			'columns' => $columns,
+			'rows'    => $rows,
+		];
+	}
+
+	/**
+	 * Synchronize column types based on auto-detect setting.
+	 *
+	 * @param int  $table_id    Table ID.
+	 * @param bool $auto_detect Whether auto-detect is enabled.
+	 * @return void
+	 */
+	public static function sync_column_types( int $table_id, bool $auto_detect = true ) {
+		global $wpdb;
+		$columns_table = $wpdb->prefix . 'roxy_columns';
+		$columns       = self::get_columns( $table_id );
+		if ( empty( $columns ) ) {
+			return;
+		}
+
+		foreach ( $columns as $col ) {
+			$new_type = $auto_detect ? self::detect_type( (string) $col['name'] ) : 'text';
+			if ( $new_type !== $col['type'] ) {
+				$wpdb->update(
+					$columns_table,
+					[ 'type' => $new_type ],
+					[ 'id' => (int) $col['id'], 'table_id' => $table_id ],
+					[ '%s' ],
+					[ '%d', '%d' ]
+				);
+			}
+		}
+	}
+
+	/**
+	 * Clean completely empty rows from the database.
+	 *
+	 * @param int $table_id Table ID.
+	 * @return int Number of deleted rows.
+	 */
+	public static function clean_empty_rows( int $table_id ) : int {
+		global $wpdb;
+		$rows_table   = $wpdb->prefix . 'roxy_rows';
+		$tables_table = $wpdb->prefix . 'roxy_tables';
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, position, data FROM {$rows_table} WHERE table_id = %d ORDER BY position ASC, id ASC",
+				$table_id
+			),
+			\ARRAY_A
+		) ?: [];
+
+		$deleted_count  = 0;
+		$retained_count = 0;
+
+		foreach ( $rows as $row ) {
+			$cells = json_decode( (string) $row['data'], true );
+			if ( ! is_array( $cells ) || self::is_row_empty( $cells ) ) {
+				$wpdb->delete( $rows_table, [ 'id' => (int) $row['id'] ], [ '%d' ] );
+				$deleted_count++;
+			} else {
+				if ( $retained_count !== (int) $row['position'] ) {
+					$wpdb->update( $rows_table, [ 'position' => $retained_count ], [ 'id' => (int) $row['id'] ], [ '%d' ], [ '%d' ] );
+				}
+				$retained_count++;
+			}
+		}
+
+		if ( $deleted_count > 0 ) {
+			$wpdb->update( $tables_table, [ 'total_rows' => $retained_count ], [ 'id' => $table_id ], [ '%d' ], [ '%d' ] );
+		}
+
+		return $deleted_count;
+	}
+
+	/**
 	 * Heuristic column type detection based on the header label.
 	 *
 	 * Returns 'number', 'date', or 'text'.
@@ -1496,7 +1719,7 @@ class Table_Repository {
 	 * @param string $header Column header label.
 	 * @return string Detected type.
 	 */
-	private static function detect_type( string $header ) : string {
+	public static function detect_type( string $header ) : string {
 		$lower = strtolower( $header );
 
 		$date_keywords   = [ 'date', 'time', 'created', 'updated', 'modified', 'born', 'expiry', 'expire', 'start', 'end' ];
@@ -1523,7 +1746,7 @@ class Table_Repository {
 	 * @param int $index 1-based column index.
 	 * @return string Column letter(s).
 	 */
-	private static function int_to_column_letter( int $index ) : string {
+	public static function int_to_column_letter( int $index ) : string {
 		$letter = '';
 		while ( $index > 0 ) {
 			$index--;

@@ -252,15 +252,8 @@
         var configuredRowsPerPage = parseInt(settings.rows_per_page, 10);
         if (isNaN(configuredRowsPerPage) || configuredRowsPerPage < 0) configuredRowsPerPage = 25;
         var paginationEnabled = featureEnabled('pagination', true) && configuredRowsPerPage !== 0;
-        var stickyHeaderEnabled = featureEnabled('sticky_header', false);
-        if (stickyHeaderEnabled) {
-            embed.classList.add('rt-has-sticky-header');
-        }
         var visibilityEnabled = featureEnabled('visibility', true);
         var exportEnabled = featureEnabled('export', false);
-
-        // Run user-configured Custom JavaScript before tableToData/pagination so any added columns/cells apply to all rows
-        executeCustomJs(embed, table, tableId, settings);
 
         // Run user-configured Custom JavaScript before tableToData/pagination so any added columns/cells apply to all rows
         executeCustomJs(embed, table, tableId, settings);

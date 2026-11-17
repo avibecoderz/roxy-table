@@ -18,24 +18,49 @@ if ( ! $table ) {
 	exit;
 }
 
-$columns      = Table_Repository::get_columns( $table_id );
-$per_page     = 50;
-$total_rows   = Table_Repository::count_rows( $table_id );
-$total_pages  = max( 1, (int) ceil( $total_rows / $per_page ) );
-$current_page = isset( $_GET['paged'] ) ? max( 1, absint( wp_unslash( $_GET['paged'] ) ) ) : 1;
-$current_page = min( $current_page, $total_pages );
-$rows         = Table_Repository::get_rows( $table_id, $per_page, ( $current_page - 1 ) * $per_page );
-$preview_url  = admin_url( 'admin.php?page=roxytable-tables&action=preview&id=' . $table_id . '&paged=' );
+$columns        = Table_Repository::get_columns( $table_id );
+$per_page       = 50;
+$total_rows_raw = Table_Repository::count_rows( $table_id );
+
 $settings     = is_array( $table['settings'] ?? null )
 	? $table['settings']
 	: ( json_decode( (string) ( $table['settings'] ?? '' ), true ) ?: [] );
 if ( class_exists( '\RoxyTable\Includes\License' ) ) {
 	$settings = \RoxyTable\Includes\License::enforce_settings_gate( $settings );
 }
+
+$parse_opts   = isset( $settings['parse_options'] ) && is_array( $settings['parse_options'] ) ? $settings['parse_options'] : [];
+$all_rows     = Table_Repository::get_rows( $table_id, max( 1, (int) $total_rows_raw ), 0 );
+$parsed_data  = Table_Repository::apply_parse_options( $columns, $all_rows, $parse_opts );
+$columns      = $parsed_data['columns'];
+$filtered_all = $parsed_data['rows'];
+
+$total_rows   = count( $filtered_all );
+$total_pages  = max( 1, (int) ceil( $total_rows / $per_page ) );
+$current_page = isset( $_GET['paged'] ) ? max( 1, absint( wp_unslash( $_GET['paged'] ) ) ) : 1;
+$current_page = min( $current_page, $total_pages );
+$rows         = array_slice( $filtered_all, ( $current_page - 1 ) * $per_page, $per_page );
+$preview_url  = admin_url( 'admin.php?page=roxytable-tables&action=preview&id=' . $table_id . '&paged=' );
 $template_slug  = ! empty( $settings['template'] ) ? sanitize_html_class( $settings['template'] ) : '';
 $template_class = isset( $template_class ) ? $template_class : ( $template_slug ? ' roxytable-template-' . $template_slug : '' );
 $stats          = Table_Repository::get_column_statistics( $table_id );
 $sheets         = isset( $settings['sheets'] ) && is_array( $settings['sheets'] ) ? $settings['sheets'] : [];
+
+$watermark_url     = ! empty( $settings['watermark_url'] ) ? esc_url_raw( (string) $settings['watermark_url'] ) : '';
+$watermark_opacity = isset( $settings['watermark_opacity'] ) ? floatval( $settings['watermark_opacity'] ) : 0.15;
+$watermark_size    = ! empty( $settings['watermark_size'] ) ? sanitize_key( (string) $settings['watermark_size'] ) : 'contain';
+
+$size_css = 'min(420px, 60%)';
+if ( 'small' === $watermark_size ) {
+	$size_css = '180px';
+} elseif ( 'medium' === $watermark_size ) {
+	$size_css = '320px';
+} elseif ( 'large' === $watermark_size ) {
+	$size_css = '480px';
+} elseif ( 'cover' === $watermark_size ) {
+	$size_css = 'contain';
+}
+$watermark_class = $watermark_url ? ' rt-has-watermark' : '';
 
 // Prepare settings for table preview; sanitize Custom JS when enabled.
 $preview_settings = $settings;
@@ -60,7 +85,7 @@ if ( ( ! isset( $settings['custom_js_enabled'] ) || ! empty( $settings['custom_j
 		<?php endif; ?>
 	</div>
 
-	<div class="roxytable-card roxytable-embed"
+	<div class="roxytable-card roxytable-embed<?php echo esc_attr( $template_class . $watermark_class ); ?>"
 		data-table-id="<?php echo esc_attr( $table_id ); ?>"
 		data-total-rows="<?php echo esc_attr( $total_rows ); ?>"
 		data-nonce="<?php echo esc_attr( wp_create_nonce( 'roxytable_filter_nonce' ) ); ?>"
@@ -68,6 +93,10 @@ if ( ( ! isset( $settings['custom_js_enabled'] ) || ! empty( $settings['custom_j
 		data-sheets="<?php echo esc_attr( wp_json_encode( $sheets ) ); ?>"
 		data-settings="<?php echo esc_attr( wp_json_encode( $preview_settings ) ); ?>"
 		style="padding:12px 16px 16px;">
+
+		<?php if ( $watermark_url ) : ?>
+			<div class="rt-watermark-overlay" style="background-image:url('<?php echo esc_url( $watermark_url ); ?>');opacity:<?php echo esc_attr( (string) $watermark_opacity ); ?>;background-size:<?php echo esc_attr( $size_css ); ?>;" aria-hidden="true"></div>
+		<?php endif; ?>
 
 		<?php
 		if ( ! empty( $settings['custom_css'] ) ) {
@@ -84,7 +113,7 @@ if ( ( ! isset( $settings['custom_js_enabled'] ) || ! empty( $settings['custom_j
 				<thead>
 					<tr>
 						<?php foreach ( $columns as $col ) : ?>
-							<th style="padding:12px 14px;background:#f3f4f6;text-align:left;font-size:0.8125rem;color:var(--text-muted);"><?php echo esc_html( $col['name'] ); ?></th>
+							<th style="padding:12px 14px;text-align:left;font-size:0.8125rem;"><?php echo esc_html( $col['name'] ); ?></th>
 						<?php endforeach; ?>
 					</tr>
 				</thead>

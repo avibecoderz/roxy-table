@@ -299,7 +299,6 @@ class Admin_Menu {
 				$settings_partial['table_filtering'] = ! empty( $_POST['rt_feat_table_filter'] );
 				$settings_partial['sort']            = ! empty( $_POST['rt_feat_sort'] );
 				$settings_partial['pagination']      = ! empty( $_POST['rt_feat_pagination'] );
-				$settings_partial['sticky_header']   = ! empty( $_POST['rt_feat_sticky_header'] );
 				$settings_partial['visibility']      = ! empty( $_POST['rt_feat_visibility'] );
 				$settings_partial['export']          = ! empty( $_POST['rt_feat_export'] );
 				$rows_per_page = intval( $_POST['rt_rows_per_page'] ?? 25 );
@@ -328,12 +327,32 @@ class Admin_Menu {
 					}
 					$settings_partial['custom_js_enabled'] = ! empty( $_POST['rt_custom_js_enabled'] );
 				}
+				if ( isset( $_POST['rt_watermark_url'] ) ) {
+					$settings_partial['watermark_url'] = esc_url_raw( trim( (string) wp_unslash( $_POST['rt_watermark_url'] ) ) );
+				}
+				if ( isset( $_POST['rt_watermark_opacity'] ) ) {
+					$opacity = floatval( $_POST['rt_watermark_opacity'] );
+					$settings_partial['watermark_opacity'] = min( 1.0, max( 0.01, $opacity ) );
+				}
+				if ( isset( $_POST['rt_watermark_size'] ) ) {
+					$allowed_sizes = [ 'contain', 'small', 'medium', 'large', 'cover' ];
+					$size          = sanitize_key( (string) $_POST['rt_watermark_size'] );
+					$settings_partial['watermark_size'] = in_array( $size, $allowed_sizes, true ) ? $size : 'contain';
+				}
 				$settings_partial['server_side'] = ! empty( $_POST['rt_server_side'] );
 			}
 
 			if ( ! empty( $settings_partial ) ) {
 				$settings_partial = \RoxyTable\Includes\License::enforce_settings_gate( $settings_partial );
 				\RoxyTable\Includes\Admin\Table_Repository::update_table_settings( $table_id, $settings_partial );
+
+				if ( isset( $settings_partial['parse_options'] ) ) {
+					$parse_opts = $settings_partial['parse_options'];
+					\RoxyTable\Includes\Admin\Table_Repository::sync_column_types( $table_id, ! empty( $parse_opts['auto_detect_types'] ) );
+					if ( ! empty( $parse_opts['remove_empty_rows'] ) ) {
+						\RoxyTable\Includes\Admin\Table_Repository::clean_empty_rows( $table_id );
+					}
+				}
 			}
 
 			wp_safe_redirect( admin_url( 'admin.php?page=roxytable-tables&action=edit&id=' . $table_id . '&settings_saved=1' ) );
@@ -423,15 +442,18 @@ class Admin_Menu {
 			'table_filtering'   => ! isset( $_POST['rt_feat_table_filter'] ) || ! empty( $_POST['rt_feat_table_filter'] ),
 			'sort'              => ! empty( $_POST['rt_feat_sort'] ),
 			'pagination'        => ! empty( $_POST['rt_feat_pagination'] ),
-			'sticky_header'     => ! empty( $_POST['rt_feat_sticky_header'] ),
 			'visibility'        => ! empty( $_POST['rt_feat_visibility'] ),
 			'export'            => ! empty( $_POST['rt_feat_export'] ),
 			'rows_per_page'     => $rows_per_page,
 			'custom_css'        => $custom_css,
 			'custom_js'         => $custom_js,
 			'custom_js_enabled' => $custom_js_enabled,
+			'watermark_url'     => isset( $_POST['rt_watermark_url'] ) ? esc_url_raw( trim( (string) wp_unslash( $_POST['rt_watermark_url'] ) ) ) : '',
+			'watermark_opacity' => isset( $_POST['rt_watermark_opacity'] ) ? min( 1.0, max( 0.01, floatval( $_POST['rt_watermark_opacity'] ) ) ) : 0.15,
+			'watermark_size'    => isset( $_POST['rt_watermark_size'] ) ? sanitize_key( (string) $_POST['rt_watermark_size'] ) : 'contain',
 			'server_side'       => $server_side,
 			'sheets'            => is_array( $worksheets ) ? $worksheets : [],
+			'parse_options'     => $parse_options,
 		];
 
 		if ( '' === $table_name ) {
@@ -1107,7 +1129,6 @@ class Admin_Menu {
 			$settings_partial['table_filtering'] = ! empty( $source['rt_feat_table_filter'] );
 			$settings_partial['sort']            = ! empty( $source['rt_feat_sort'] );
 			$settings_partial['pagination']      = ! empty( $source['rt_feat_pagination'] );
-			$settings_partial['sticky_header']   = ! empty( $source['rt_feat_sticky_header'] );
 			$settings_partial['visibility']      = ! empty( $source['rt_feat_visibility'] );
 			$settings_partial['export']          = ! empty( $source['rt_feat_export'] );
 			$rows_per_page = intval( $source['rt_rows_per_page'] ?? 25 );
@@ -1136,12 +1157,31 @@ class Admin_Menu {
 				}
 				$settings_partial['custom_js_enabled'] = ! empty( $source['rt_custom_js_enabled'] );
 			}
+			if ( isset( $source['rt_watermark_url'] ) ) {
+				$settings_partial['watermark_url'] = esc_url_raw( trim( (string) $source['rt_watermark_url'] ) );
+			}
+			if ( isset( $source['rt_watermark_opacity'] ) ) {
+				$settings_partial['watermark_opacity'] = min( 1.0, max( 0.01, floatval( $source['rt_watermark_opacity'] ) ) );
+			}
+			if ( isset( $source['rt_watermark_size'] ) ) {
+				$allowed_sizes = [ 'contain', 'small', 'medium', 'large', 'cover' ];
+				$size          = sanitize_key( (string) $source['rt_watermark_size'] );
+				$settings_partial['watermark_size'] = in_array( $size, $allowed_sizes, true ) ? $size : 'contain';
+			}
 			$settings_partial['server_side'] = ! empty( $source['rt_server_side'] );
 		}
 
 		if ( ! empty( $settings_partial ) ) {
 			$settings_partial = \RoxyTable\Includes\License::enforce_settings_gate( $settings_partial );
 			Table_Repository::update_table_settings( $table_id, $settings_partial );
+
+			if ( isset( $settings_partial['parse_options'] ) ) {
+				$parse_opts = $settings_partial['parse_options'];
+				Table_Repository::sync_column_types( $table_id, ! empty( $parse_opts['auto_detect_types'] ) );
+				if ( ! empty( $parse_opts['remove_empty_rows'] ) ) {
+					Table_Repository::clean_empty_rows( $table_id );
+				}
+			}
 		}
 
 		$updated_table = Table_Repository::get_table( $table_id );

@@ -4,10 +4,24 @@ All notable changes to the RoxyTable WordPress plugin will be documented in this
 
 ## [Unreleased]
 
+### Fixed
+- **Table Parse Options Execution**: Enabled and fixed the full functional behavior of Section 2 ("Parse Options"):
+  - **Remove empty rows**: Empty rows (blank or empty placeholder cells) are now filtered out dynamically across frontend table rendering, live admin preview, and AJAX queries, and purged from the database upon saving.
+  - **Remove empty columns**: Automatically drops completely empty columns that lack content and have blank/default headers.
+  - **First row contains headers**: When disabled, generic headers (`Column A`, `Column B`...) are generated and the first data row is preserved in the table body. When enabled, the first row acts as column headers.
+  - **Auto-detect column types**: Automatically analyzes and updates column data types (`number`, `date`, `text`) in `wp_roxy_columns` and disables numeric range statistics when toggled off.
+
+### Improved
+- **Table Watermark UI Redesign**: Modernized Section 4 ("Table Watermark") in the Table Edit screen with RoxyTable's design system:
+  - Interactive upload card with checkerboard transparency grid and hover change overlay.
+  - Live status indicator badge showing watermark active state.
+  - Custom gradient range slider with pill value badge and quick preset buttons (`6% Faint`, `12% Subtle`, `20% Balanced`, `35% Distinct`).
+  - Real-time live table simulation widget previewing the watermark over sample table rows and headers.
+
 ## [1.0.13] - 2026-11-14
 
 ### Added
-- **Pro Sticky Headers on Scroll**: Pinned table headers during table and page scrolling with high-visibility solid background fills matching the active table template.
+- **Table Watermark System**: Added an administrative option in Table Edit and Settings allowing administrators to upload an image via the WordPress Media Library to display as a subtle, translucent watermark (with configurable opacity and size) centered behind table rows across frontend tables and live previews without obstructing cell interactions.
 - **Dynamic Dotted Border Line System**: Modern, responsive dotted table border lines (`border: 1.5px dotted var(--rt-border-dotted-color)`) that dynamically adapt to the active template palette (Classic Slate, Indigo Clean, Obsidian Dark, and Forest Emerald).
 - **Consecutive-Row Group-Aware Filtering**: Group-aware ("fill-down") filtering engine across frontend and live admin previews, preserving blank continuation rows underneath parent grouped values (e.g., serial numbers, departments) until the next distinct value.
 ## [1.0.12] - 2026-11-02

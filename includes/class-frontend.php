@@ -174,15 +174,22 @@ class Frontend {
 		$columns    = Table_Repository::get_columns( $table_id );
 		$total_rows = Table_Repository::count_rows( $table_id );
 		$rows       = Table_Repository::get_rows( $table_id, max( 1, $total_rows ), 0 );
-		$stats      = Table_Repository::get_column_statistics( $table_id );
 
 		$settings = is_array( $table['settings'] ?? null )
 			? $table['settings']
 			: ( json_decode( (string) ( $table['settings'] ?? '' ), true ) ?: [] );
 		$settings = ( class_exists( '\RoxyTable\Includes\License' ) ? ( class_exists( '\RoxyTable\Includes\License' ) ? \RoxyTable\Includes\License::enforce_settings_gate( $settings ) : $settings ) : $settings );
+
+		// Apply parse options: First row contains headers, Auto-detect column types, Remove empty rows, Remove empty columns
+		$parse_opts  = isset( $settings['parse_options'] ) && is_array( $settings['parse_options'] ) ? $settings['parse_options'] : [];
+		$parsed_data = Table_Repository::apply_parse_options( $columns, $rows, $parse_opts );
+		$columns     = $parsed_data['columns'];
+		$rows        = $parsed_data['rows'];
+		$total_rows  = count( $rows );
+
+		$stats       = Table_Repository::get_column_statistics( $table_id );
 		$template       = ! empty( $settings['template'] ) ? sanitize_html_class( $settings['template'] ) : '';
 		$template_class = $template ? ' roxytable-template-' . $template : '';
-		$sticky_class   = ! empty( $settings['sticky_header'] ) ? ' rt-has-sticky-header' : '';
 
 		$sheets = isset( $settings['sheets'] ) && is_array( $settings['sheets'] ) ? $settings['sheets'] : [];
 
@@ -197,7 +204,23 @@ class Frontend {
 			unset( $frontend_settings['custom_js'] );
 		}
 
-		$html = '<div class="roxytable-embed' . esc_attr( $template_class . $sticky_class ) . '"'
+		$watermark_url     = ! empty( $settings['watermark_url'] ) ? esc_url_raw( (string) $settings['watermark_url'] ) : '';
+		$watermark_opacity = isset( $settings['watermark_opacity'] ) ? floatval( $settings['watermark_opacity'] ) : 0.15;
+		$watermark_size    = ! empty( $settings['watermark_size'] ) ? sanitize_key( (string) $settings['watermark_size'] ) : 'contain';
+
+		$size_css = 'min(420px, 60%)';
+		if ( 'small' === $watermark_size ) {
+			$size_css = '180px';
+		} elseif ( 'medium' === $watermark_size ) {
+			$size_css = '320px';
+		} elseif ( 'large' === $watermark_size ) {
+			$size_css = '480px';
+		} elseif ( 'cover' === $watermark_size ) {
+			$size_css = 'contain';
+		}
+		$watermark_class = $watermark_url ? ' rt-has-watermark' : '';
+
+		$html = '<div class="roxytable-embed' . esc_attr( $template_class . $watermark_class ) . '"'
 			. ' data-table-id="' . esc_attr( $table_id ) . '"'
 			. ' data-total-rows="' . esc_attr( $total_rows ) . '"'
 			. ' data-nonce="' . esc_attr( wp_create_nonce( 'roxytable_filter_nonce' ) ) . '"'
@@ -205,6 +228,10 @@ class Frontend {
 			. ' data-sheets="' . esc_attr( wp_json_encode( $sheets ) ) . '"'
 			. ' data-settings="' . esc_attr( wp_json_encode( $frontend_settings ) ) . '"'
 			. ' style="max-width:100%;overflow-x:auto;">';
+
+		if ( $watermark_url ) {
+			$html .= '<div class="rt-watermark-overlay" style="background-image:url(\'' . esc_url( $watermark_url ) . '\');opacity:' . esc_attr( (string) $watermark_opacity ) . ';background-size:' . esc_attr( $size_css ) . ';" aria-hidden="true"></div>';
+		}
 
 		if ( ! empty( $settings['custom_css'] ) ) {
 			$scoped_css = self::format_scoped_css( $table_id, (string) $settings['custom_css'] );

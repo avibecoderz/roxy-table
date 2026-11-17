@@ -1569,6 +1569,193 @@ function initAjaxForms() {
 	} );
 }
 
+/* =========================================================
+   Table Watermark Uploader & Controls — Enhanced UI
+   ========================================================= */
+function initWatermarkControls() {
+	const selectBtn    = document.getElementById( 'rt-select-watermark-btn' );
+	const selectBtnTxt = document.getElementById( 'rt-select-btn-text' );
+	const removeBtn    = document.getElementById( 'rt-remove-watermark-btn' );
+	const urlInput     = document.getElementById( 'rt-watermark-url' );
+	const previewBox   = document.getElementById( 'rt-watermark-preview-box' );
+	const opacityRange = document.getElementById( 'rt-watermark-opacity-range' );
+	const opacityVal   = document.getElementById( 'rt-watermark-opacity-val' );
+	const sizeSelect   = document.getElementById( 'rt-watermark-size' );
+	const statusBadge  = document.getElementById( 'rt-watermark-status-badge' );
+	const statusText   = document.getElementById( 'rt-watermark-status-text' );
+	const simOverlay   = document.getElementById( 'rt-watermark-sim-overlay' );
+	const presetChips  = document.querySelectorAll( '.rt-preset-chip' );
+
+	const sizeMap = {
+		'small': 'min(70px, 25%)',
+		'medium': 'min(110px, 40%)',
+		'large': 'min(150px, 60%)',
+		'cover': 'cover',
+		'contain': 'min(120px, 45%)'
+	};
+
+	function syncSimulatorSize() {
+		if ( ! simOverlay || ! sizeSelect ) return;
+		const val = sizeSelect.value;
+		simOverlay.style.backgroundSize = sizeMap[ val ] || 'min(120px, 45%)';
+	}
+
+	function syncPresets( currentVal ) {
+		presetChips.forEach( ( chip ) => {
+			const chipVal = parseFloat( chip.dataset.opacity );
+			if ( Math.abs( chipVal - currentVal ) < 0.015 ) {
+				chip.classList.add( 'is-active' );
+			} else {
+				chip.classList.remove( 'is-active' );
+			}
+		} );
+	}
+
+	if ( opacityRange && opacityVal ) {
+		const initVal = parseFloat( opacityRange.value ) || 0.15;
+		syncPresets( initVal );
+
+		opacityRange.addEventListener( 'input', () => {
+			const currentVal = parseFloat( opacityRange.value );
+			const pct = Math.round( currentVal * 100 );
+			opacityVal.textContent = pct + '%';
+
+			if ( simOverlay ) {
+				simOverlay.style.opacity = currentVal;
+			}
+
+			syncPresets( currentVal );
+		} );
+	}
+
+	presetChips.forEach( ( chip ) => {
+		chip.addEventListener( 'click', () => {
+			if ( ! opacityRange ) return;
+			const targetVal = chip.dataset.opacity;
+			opacityRange.value = targetVal;
+			opacityRange.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+		} );
+	} );
+
+	if ( sizeSelect ) {
+		syncSimulatorSize();
+		sizeSelect.addEventListener( 'change', syncSimulatorSize );
+	}
+
+	// Click on preview box to trigger media picker
+	if ( previewBox && selectBtn ) {
+		previewBox.addEventListener( 'click', ( e ) => {
+			if ( e.target.closest( '#rt-remove-watermark-btn' ) ) return;
+			selectBtn.click();
+		} );
+		previewBox.addEventListener( 'keydown', ( e ) => {
+			if ( e.key === 'Enter' || e.key === ' ' ) {
+				e.preventDefault();
+				selectBtn.click();
+			}
+		} );
+	}
+
+	if ( selectBtn && urlInput ) {
+		selectBtn.addEventListener( 'click', ( e ) => {
+			e.preventDefault();
+
+			if ( typeof wp === 'undefined' || ! wp.media ) {
+				alert( 'WordPress Media Library is not available.' );
+				return;
+			}
+
+			const frame = wp.media({
+				title: 'Select Table Watermark Image',
+				button: { text: 'Use as Watermark' },
+				multiple: false
+			});
+
+			frame.on( 'select', () => {
+				const selection = frame.state().get( 'selection' );
+				const attachment = selection ? selection.first().toJSON() : null;
+
+				if ( attachment && attachment.url ) {
+					urlInput.value = attachment.url;
+
+					if ( previewBox ) {
+						previewBox.classList.add( 'has-image' );
+						previewBox.innerHTML = '<img id="rt-watermark-preview-img" class="rt-watermark-preview-img" src="' + attachment.url + '" alt="Watermark Preview" />' +
+							'<div class="rt-watermark-hover-overlay">' +
+							'<svg xmlns="http://www.w3.org/2000/svg" style="width:20px;height:20px;" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" /></svg>' +
+							'<span>Change Image</span></div>';
+					}
+
+					if ( simOverlay ) {
+						simOverlay.style.backgroundImage = 'url(\'' + attachment.url + '\')';
+						simOverlay.style.display = 'block';
+						simOverlay.style.opacity = opacityRange ? opacityRange.value : '0.15';
+						syncSimulatorSize();
+					}
+
+					if ( statusBadge ) {
+						statusBadge.classList.remove( 'is-empty' );
+						statusBadge.classList.add( 'is-active' );
+					}
+					if ( statusText ) {
+						statusText.textContent = 'Active';
+					}
+
+					if ( removeBtn ) {
+						removeBtn.style.display = 'inline-flex';
+					}
+
+					if ( selectBtnTxt ) {
+						selectBtnTxt.textContent = 'Change Image';
+					} else {
+						selectBtn.textContent = 'Change Image';
+					}
+				}
+			});
+
+			frame.open();
+		} );
+	}
+
+	if ( removeBtn && urlInput ) {
+		removeBtn.addEventListener( 'click', ( e ) => {
+			e.preventDefault();
+			e.stopPropagation();
+			urlInput.value = '';
+
+			if ( previewBox ) {
+				previewBox.classList.remove( 'has-image' );
+				previewBox.innerHTML = '<div id="rt-watermark-placeholder" class="rt-watermark-preview-placeholder">' +
+					'<div class="rt-watermark-icon-wrap"><svg xmlns="http://www.w3.org/2000/svg" style="width:22px;height:22px;" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg></div>' +
+					'<span class="rt-watermark-empty-title">Select Watermark</span>' +
+					'<span class="rt-watermark-empty-sub">PNG, SVG, JPG, WebP</span></div>';
+			}
+
+			if ( simOverlay ) {
+				simOverlay.style.display = 'none';
+				simOverlay.style.backgroundImage = 'none';
+			}
+
+			if ( statusBadge ) {
+				statusBadge.classList.remove( 'is-active' );
+				statusBadge.classList.add( 'is-empty' );
+			}
+			if ( statusText ) {
+				statusText.textContent = 'No Watermark Set';
+			}
+
+			removeBtn.style.display = 'none';
+
+			if ( selectBtnTxt ) {
+				selectBtnTxt.textContent = 'Select Image';
+			} else if ( selectBtn ) {
+				selectBtn.textContent = 'Select Image';
+			}
+		} );
+	}
+}
+initWatermarkControls();
+
 
 
 
